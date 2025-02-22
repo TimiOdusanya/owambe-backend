@@ -1,0 +1,13 @@
+# Node artifact files
+node_modules/
+scripts/
+tests/
+.env
+logs
+package-lock.json
+scp.sh
+notes.md
+test.js
+login.sh
+src/config/firebase-config.json
+.DS_Store
