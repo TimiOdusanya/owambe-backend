@@ -31,6 +31,7 @@ exports.login = async (req, res) => {
       return res.status(202).json({
         message: "2FA verification required",
         tempToken: result.tempToken,
+        accessToken: result.accessToken,
       });
     }
 
@@ -46,6 +47,7 @@ exports.login = async (req, res) => {
     res.status(200).json({
       message: "Login successful",
       user: result.user,
+      accessToken: result.accessToken,
     });
   } catch (error) {
     res.status(400).json({ message: error.message });
