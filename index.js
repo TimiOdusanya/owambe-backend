@@ -16,8 +16,28 @@ const routes = require('./src/modules/admin/routes');
 dotenv.config();
 
 const app = express();
+const allowedOrigins = [
+  "http://localhost:3000",
+  "http://localhost:5173",
+  "https://owambe-dashboard.vercel.app",
+];
 
-app.use(cors());
+app.use(
+  cors({
+    origin: function (origin, callback) {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
+    methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
+    credentials: true,
+  })
+);
+
+
+// app.use(cors());
 app.use(httpLogger);
 app.use(helmet());
 app.use(cookieParser()); // Fix applied
