@@ -25,7 +25,7 @@ exports.signup = async (userData) => {
     subject: "Welcome to Owambe ERP",
     body: "Thank you for signing up! We're excited to have you on board.",
     buttonText: "Get Started",
-    buttonLink: "https://owambe-erp.com/dashboard",
+    buttonLink: "https://owambe-dashboard.vercel.app",
   });
 
   // Send OTP via email
@@ -146,6 +146,20 @@ exports.verifyAccount = async (email, otp) => {
 
   user.isVerified = true;
   user.verificationOTP = undefined; // Clear the OTP
+  await user.save();
+  
+  return { message: "Account verified successfully" };
+};
+
+exports.verifyForgotPassword = async (email, otp) => {
+  const user = await User.findOne({ email });
+  if (!user) throw new Error("User not found");
+
+  // Check verificationOTP, not resetPasswordOTP
+  if (user.resetPasswordOTP !== otp) throw new Error("Invalid OTP");
+
+  user.isVerified = true;
+  user.resetPasswordOTP = undefined;
   await user.save();
   
   return { message: "Account verified successfully" };

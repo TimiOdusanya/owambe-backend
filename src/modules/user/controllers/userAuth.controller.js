@@ -100,6 +100,16 @@ exports.verifyAccount = async (req, res) => {
   }
 };
 
+exports.verifyForgotPassword = async (req, res) => {
+  try {
+    const { email, otp } = req.body;
+    const result = await authService.verifyForgotPassword(email, otp);
+    res.status(200).json(result);
+  } catch (error) {
+    res.status(400).json({ message: error.message });
+  }
+};
+
 // In userAuth.controller.js
 exports.resendVerificationOTP = async (req, res) => {
   try {
