@@ -1,9 +1,6 @@
 const Food = require("../models/Food");
-const Event = require("../models/Event");
 
 exports.createFood = async (foodData) => {
-  const event = await Event.findById(foodData.eventId);
-  if (!event) throw new Error("Event not found");
   const food = new Food(foodData);
   await food.save();
   return food;
