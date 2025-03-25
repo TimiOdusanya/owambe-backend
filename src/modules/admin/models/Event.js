@@ -32,15 +32,15 @@ const eventSchema = new mongoose.Schema(
       {
         type: {
           type: String,
-          enum: Object.values(eventTableType),
+          // enum: Object.values(eventTableType),
           required: true,
         },
-        otherType: {
-          type: String,
-          required: function () {
-            return this.type === "Others";
-          },
-        },
+        // otherType: {
+        //   type: String,
+        //   required: function () {
+        //     return this.type === "Others";
+        //   },
+        // },
         tableNumber: String,
         seats: Number,
       },
