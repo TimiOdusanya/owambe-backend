@@ -10,7 +10,8 @@ const {
   verify2FALogin,
   resendVerificationOTP,
   logout,
-  getUserProfile
+  getUserProfile,
+  verifyForgotPassword,
 } = require("../controllers/userAuth.controller");
 const { authenticate, check2FA } = require("../../../middleware/authMiddleware");
 
@@ -23,6 +24,7 @@ router.post("/forgot-password", forgotPassword);
 // router.post("/two-factor-auth", enable2FA);
 router.put("/reset-password", resetPassword);
 router.post("/verify", verifyAccount);
+router.post("/verify-forgot-password", verifyForgotPassword);
 router.post("/resend-verification", resendVerificationOTP);
 router.post("/verify-2fa", verify2FALogin);
 router.post("/logout", logout);

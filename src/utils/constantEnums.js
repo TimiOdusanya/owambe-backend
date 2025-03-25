@@ -8,6 +8,13 @@ const eventStatus = {
   COMPLETED: "completed",
   ONGOING: "ongoing",
 };
+const foodCategory = {
+  APPETIZER: "appetizer",
+  MAIN: "main_course",
+  DESSERT: "dessert",
+  SNACK: "snack",
+  OTHERS: "others"
+};
 
 const eventTableType = {
   VIP: "VIP",
@@ -20,4 +27,5 @@ module.exports = {
   userGender,
   eventStatus,
   eventTableType,
+  foodCategory,
 };

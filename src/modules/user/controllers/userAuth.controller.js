@@ -31,6 +31,7 @@ exports.login = async (req, res) => {
       return res.status(202).json({
         message: "2FA verification required",
         tempToken: result.tempToken,
+        accessToken: result.accessToken,
       });
     }
 
@@ -46,6 +47,7 @@ exports.login = async (req, res) => {
     res.status(200).json({
       message: "Login successful",
       user: result.user,
+      accessToken: result.accessToken,
     });
   } catch (error) {
     res.status(400).json({ message: error.message });
@@ -92,6 +94,16 @@ exports.verifyAccount = async (req, res) => {
   try {
     const { email, otp } = req.body;
     const result = await authService.verifyAccount(email, otp);
+    res.status(200).json(result);
+  } catch (error) {
+    res.status(400).json({ message: error.message });
+  }
+};
+
+exports.verifyForgotPassword = async (req, res) => {
+  try {
+    const { email, otp } = req.body;
+    const result = await authService.verifyForgotPassword(email, otp);
     res.status(200).json(result);
   } catch (error) {
     res.status(400).json({ message: error.message });

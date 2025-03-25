@@ -7,7 +7,7 @@ const { authenticate } = require("../../../middleware/authMiddleware");
 router.post("/:eventId", authenticate, foodController.createFood);
 router.get("/:eventId/:foodId", authenticate, foodController.getFood);
 router.get("/:eventId", authenticate, foodController.getAllFood);
-router.put("/:eventId/:foodId", authenticate, foodController.updateFood);
+router.patch("/:eventId/:foodId", authenticate, foodController.updateFood);
 router.delete("/:eventId/:foodId", authenticate, foodController.deleteFood);
 router.delete("/:eventId", authenticate, foodController.deleteMultipleFood);
 
