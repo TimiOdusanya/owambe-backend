@@ -1,8 +1,11 @@
 const foodService = require("../services/foodService");
+const Event = require("../models/Event");
 
 exports.createFood = async (req, res) => {
   try {
     const { eventId } = req.params;
+    const event = await Event.findById(eventId);
+    if (!event) return res.status(404).json({ message: "Event not found" });
     const foodData = { ...req.body, eventId };
     const food = await foodService.createFood(foodData);
     res.status(201).json(food);
