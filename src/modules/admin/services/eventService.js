@@ -15,9 +15,13 @@ exports.getEventById = async (eventId) => {
   return await Event.findById(eventId);
 };
 
-exports.getAllEvents = async (limit = 10, skip = 0) => {
-  return await Event.find().skip(skip).limit(limit);
+exports.getAllEvents = async (userId, limit, skip) => {
+  return Event.find({ organizerId: userId })
+    .limit(limit)
+    .skip(skip)
+    .sort({ createdAt: -1 });
 };
+
 
 exports.updateEvent = async (eventId, updateData) => {
   return await Event.findByIdAndUpdate(eventId, updateData, { new: true });

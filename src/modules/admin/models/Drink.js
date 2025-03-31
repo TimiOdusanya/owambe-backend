@@ -1,4 +1,5 @@
 const mongoose = require("mongoose");
+const { drinkCategory, drinkType } = require("../../../utils/constantEnums");
 
 const drinkSchema = new mongoose.Schema({
   eventId: {
@@ -9,24 +10,22 @@ const drinkSchema = new mongoose.Schema({
   name: { type: String, required: true },
   category: {
     type: String,
-    enum: [
-      "water",
-      "beverage",
-      "wine",
-      "cocktail",
-      "juice",
-      "soda",
-      "others",
-      "liquor",
-    ],
+    enum: Object.values(drinkCategory),
     required: true,
   },
   type: {
     type: String,
-    enum: ["alcoholic", "non-alcoholic"],
+    enum: Object.values(drinkType),
     required: true,
   },
-  media: [{ name: String, size: Number, type: String }],
+  media: [
+    {
+      name: { type: String },
+      size: { type: Number },
+      type: { type: String },
+      link: { type: String },
+    },
+  ],
   description: String,
 });
 
