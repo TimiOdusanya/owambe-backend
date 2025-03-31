@@ -64,15 +64,20 @@ exports.getEvent = async (req, res) => {
 exports.getAllEvents = async (req, res) => {
   try {
     const { limit = 10, skip = 0 } = req.query;
+    const userId = req.user._id;
+
     const events = await eventService.getAllEvents(
+      userId,
       parseInt(limit),
       parseInt(skip)
     );
+
     res.json(events);
   } catch (error) {
     res.status(400).json({ message: error.message });
   }
 };
+
 
 exports.updateEvent = async (req, res) => {
   try {

@@ -9,6 +9,7 @@ const orderRoutes = require("./orderRoutes");
 const guestRoutes = require("./guestRoutes");
 const mediaRoutes = require("./mediaRoutes");
 const giftRoutes = require("./giftRoutes");
+const uploadRoutes = require("./uploadMedia");
 
 
 router.use("/events", eventRoutes);
@@ -18,5 +19,6 @@ router.use("/orders", orderRoutes);
 router.use("/guests", guestRoutes);
 router.use("/media", mediaRoutes);
 router.use("/gifts", giftRoutes);
+router.use("/upload-media", uploadRoutes);
 
 module.exports = router;

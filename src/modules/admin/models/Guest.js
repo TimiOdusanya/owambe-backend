@@ -1,4 +1,5 @@
 const mongoose = require("mongoose");
+const { guestRole } = require("../../../utils/constantEnums");
 
 const guestSchema = new mongoose.Schema({
   eventId: {
@@ -12,13 +13,15 @@ const guestSchema = new mongoose.Schema({
   address: String,
   role: {
     type: String,
-    enum: ["VIP", "Regular", "others"],
+    enum: Object.values(guestRole),
     required: true,
   },
   tableSeatNumber: String,
   plusOnes: { type: Number, default: 0 },
   inviteSent: { type: Boolean, default: false },
-});
+},
+{ timestamps: true }
+);
 
 // Index for faster queries
 guestSchema.index({ eventId: 1 });
