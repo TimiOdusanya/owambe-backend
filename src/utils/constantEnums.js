@@ -47,6 +47,22 @@ const guestRole = {
   Others: "Others",
 }
 
+const orderStatus = {
+  Completed: "completed",
+  Ongoing: "ongoing",
+  Cancelled: "cancelled"
+};
+
+const menuType = {
+  Food: "food",
+  Drink: "drink",
+};
+
+
+const mediaType = {
+  Photo: "photo",
+  Video: "video",
+};
 
 module.exports = {
   userGender,
@@ -55,5 +71,8 @@ module.exports = {
   foodCategory,
   drinkCategory,
   drinkType,
-  guestRole
+  guestRole,
+  orderStatus,
+  menuType,
+  mediaType
 };
