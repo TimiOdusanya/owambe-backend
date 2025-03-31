@@ -13,7 +13,8 @@ exports.getFoodById = async (eventId, foodId) => {
 exports.getAllFood = async (eventId, limit = 10, skip = 0) => {
   const [food, totalCount] = await Promise.all([
     Food.find({ eventId }).skip(skip).limit(limit),
-    Food.countDocuments({ eventId }),
+    Food.countDocuments({ eventId })
+    .sort( {createdAt: -1}),
   ]);
 
   return { food, totalCount };

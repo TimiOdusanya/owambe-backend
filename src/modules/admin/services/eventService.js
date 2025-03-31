@@ -16,10 +16,14 @@ exports.getEventById = async (eventId) => {
 };
 
 exports.getAllEvents = async (userId, limit, skip) => {
-  return Event.find({ organizerId: userId })
-    .limit(limit)
-    .skip(skip)
-    .sort({ createdAt: -1 });
+
+  const [events, totalCount] = await Promise.all([
+      Event.find({ organizerId: userId }).skip(skip).limit(limit),
+      Event.countDocuments({ organizerId: userId })
+      .sort( {createdAt: -1}),
+    ]);
+  
+    return { events, totalCount };
 };
 
 

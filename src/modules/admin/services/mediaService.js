@@ -1,12 +1,14 @@
 const Media = require("../models/Media");
-const Event = require("../models/Event");
 
 exports.createMedia = async (mediaData) => {
-  const event = await Event.findById(mediaData.eventId);
-  if (!event) throw new Error("Event not found");
   const media = new Media(mediaData);
   await media.save();
   return media;
+};
+
+
+exports.createMultipleMedia = async (mediaData) => {
+  return await Media.insertMany(mediaData);
 };
 
 exports.getMediaById = async (eventId, mediaId) => {
@@ -14,7 +16,13 @@ exports.getMediaById = async (eventId, mediaId) => {
 };
 
 exports.getAllMedia = async (eventId, limit = 10, skip = 0) => {
-  return await Media.find({ eventId }).skip(skip).limit(limit);
+   const [media, totalCount] = await Promise.all([
+      Media.find({ eventId }).skip(skip).limit(limit),
+      Media.countDocuments({ eventId }),
+    ]);
+  
+    return { media, totalCount };
+
 };
 
 exports.updateMedia = async (eventId, mediaId, updateData) => {
