@@ -27,7 +27,8 @@ const drinkSchema = new mongoose.Schema({
     },
   ],
   description: String,
-});
+},
+{ timestamps: true });
 
 
 drinkSchema.index({ eventId: 1 });

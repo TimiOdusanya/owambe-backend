@@ -29,7 +29,7 @@ const mediaSchema = new mongoose.Schema({
     required: true 
   },
   description: String,
-});
+},  { timestamps: true });
 
 // Index for faster queries
 mediaSchema.index({ eventId: 1 });

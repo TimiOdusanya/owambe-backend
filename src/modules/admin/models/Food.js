@@ -25,7 +25,9 @@ const foodSchema = new mongoose.Schema({
     },
   ],
   description: String,
-});
+},
+{ timestamps: true }
+);
 
 // Index for faster queries
 foodSchema.index({ eventId: 1 });
