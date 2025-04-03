@@ -13,11 +13,11 @@ const drinkSchema = new mongoose.Schema({
     enum: Object.values(drinkCategory),
     required: true,
   },
-  type: {
-    type: String,
-    enum: Object.values(drinkType),
-    required: true,
-  },
+  // type: {
+  //   type: String,
+  //   enum: Object.values(drinkType),
+  //   required: true,
+  // },
   media: [
     {
       name: { type: String },
@@ -27,9 +27,10 @@ const drinkSchema = new mongoose.Schema({
     },
   ],
   description: String,
-});
+},
+{ timestamps: true });
 
-// Index for faster queries
+
 drinkSchema.index({ eventId: 1 });
 
 module.exports = mongoose.model("Drink", drinkSchema);

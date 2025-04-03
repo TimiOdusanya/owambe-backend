@@ -55,7 +55,8 @@ const giftSchema = new mongoose.Schema({
     ],
   },
   reference: String, // optional for cashgift
-});
+},
+{ timestamps: true });
 
 // Index for faster queries
 giftSchema.index({ eventId: 1 });
