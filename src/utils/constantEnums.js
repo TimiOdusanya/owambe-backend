@@ -23,7 +23,7 @@ const eventTableType = {
   Others: "Others",
 };
 
-const drinkCategory = {
+const drinkType = {
   WATER: "water",
   BEVERAGE: "beverage",
   WINE: "wine",
@@ -35,7 +35,7 @@ const drinkCategory = {
 };
 
 
-const drinkType = {
+const drinkCategory = {
   ALCOHOLIC: "alcoholic",
   NONALCHOLIC: "non-alcoholic",
 };
