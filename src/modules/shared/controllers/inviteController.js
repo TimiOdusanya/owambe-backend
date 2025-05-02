@@ -38,6 +38,10 @@ exports.claimEvent = async (req, res) => {
       return res.status(400).json({ message: "Email does not match guest record" });
     }
 
+    if (guest.claimedInvite) {
+        return res.status(400).json({ message: "Invite already claimed" });
+      }
+
     guest.claimedInvite = true;
     await guest.save();
 
@@ -54,7 +58,6 @@ exports.InviteClaimed = async (req, res) => {
     const guest = await Guest.findOne({ _id: guestId, eventId });
     if (!guest) return res.status(404).json({ message: "Guest not found" });
 
-    console.log("guestttt", guest)
 
     res.json({ claimedInvite: guest.claimedInvite });
   } catch (err) {
