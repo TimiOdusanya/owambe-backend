@@ -8,7 +8,6 @@ const eventSchema = new mongoose.Schema(
     startDateTime: { type: Date, required: true },
     endDateTime: { type: Date, required: true },
     timeZone: { type: String, required: true },
-    // media: [{ name: String, size: String, type: String, link: String }],
     media: [
       {
         name: { type: String },
