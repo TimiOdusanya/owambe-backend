@@ -20,6 +20,7 @@ const guestSchema = new mongoose.Schema({
   seatNumber: String,
   plusOnes: { type: Number, default: 0 },
   inviteSent: { type: Boolean, default: false },
+  claimedInvite: { type: Boolean, default: false },
 },
 { timestamps: true }
 );
