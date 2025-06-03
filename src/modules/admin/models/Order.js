@@ -7,8 +7,13 @@ const orderSchema = new mongoose.Schema({
     ref: "Event",
     required: true,
   },
-  orderCode: { type: String, required: true },
-  guestName: { type: String, required: true },
+  guestId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Guest",
+    required: true,
+  },
+  // orderCode: { type: String, required: true },
+  // guestName: { type: String, required: true },
   items: [
     {
       type: { 
@@ -24,6 +29,10 @@ const orderSchema = new mongoose.Schema({
         type: Number, 
         required: true 
       },
+      orderNote: { 
+        type: String, 
+        required: false 
+      }
     },
   ],
   date: Date,

@@ -11,7 +11,7 @@ exports.inviteGuest = async ({ event, guest }) => {
     timeStyle: "short",
   });
 
-  const buttonLink = `https://owambe-dashboard.vercel.app/${eventId}?guestId=${guestId}`;
+  const buttonLink = `https://owambe-website.vercel.app/${eventId}?guestId=${guestId}`;
 
   await sendEmail(email, "eventInvite", {
     subject: `You're Invited to ${eventName}! 🎉`,
