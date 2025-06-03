@@ -11,8 +11,6 @@ const httpLogger = require("./src/lib/log/morgan.log");
 //routes
 const authRoutes = require("./src/modules/user/routes/userAuth.route");
 const routes = require('./src/modules/admin/routes');
-const sharedRoutes = require('./src/modules/shared/routes');
-
 
 // Load environment variables first
 dotenv.config();
@@ -55,7 +53,6 @@ console.log("Starting server...");
 
 app.use("/api/v1/auth", authRoutes);
 app.use("/api/v1", routes);
-app.use("/api/v1", sharedRoutes);
 
 
 const port = process.env.PORT || 8081;

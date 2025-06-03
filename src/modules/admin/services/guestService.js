@@ -1,29 +1,20 @@
 const Guest = require("../models/Guest");
+const Event = require("../models/Event");
 
 exports.createGuest = async (guestData) => {
+  const event = await Event.findById(guestData.eventId);
+  if (!event) throw new Error("Event not found");
   const guest = new Guest(guestData);
   await guest.save();
   return guest;
 };
-
-exports.createMultipleGuests = async (guestsData) => {
-  return await Guest.insertMany(guestsData);
-};
-
 
 exports.getGuestById = async (eventId, guestId) => {
   return await Guest.findOne({ _id: guestId, eventId });
 };
 
 exports.getAllGuests = async (eventId, limit = 10, skip = 0) => {
-   const [guests, totalCount] = await Promise.all([
-    Guest.find({ eventId }).skip(skip).limit(limit),
-    Guest.countDocuments({ eventId })
-      .sort( {createdAt: -1}),
-    ]);
-  
-    return { guests, totalCount };
-
+  return await Guest.find({ eventId }).skip(skip).limit(limit);
 };
 
 exports.updateGuest = async (eventId, guestId, updateData) => {

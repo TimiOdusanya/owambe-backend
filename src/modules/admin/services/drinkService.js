@@ -14,12 +14,7 @@ exports.getDrinkById = async (eventId, drinkId) => {
 };
 
 exports.getAllDrinks = async (eventId, limit = 10, skip = 0) => {
-  const [drinks, totalCount] = await Promise.all([
-    Drink.find({ eventId }).skip(skip).limit(limit),
-    Drink.countDocuments({ eventId }),
-  ]);
-
-  return { drinks, totalCount };
+  return await Drink.find({ eventId }).skip(skip).limit(limit);
 };
 
 exports.updateDrink = async (eventId, drinkId, updateData) => {

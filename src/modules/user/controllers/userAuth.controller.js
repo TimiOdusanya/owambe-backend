@@ -192,18 +192,3 @@ exports.logout = (req, res) => {
   res.clearCookie("jwt");
   res.status(200).json({ message: "Logged out successfully" });
 };
-
-
-exports.updateProfile = async (req, res) => {
-  try {
-
-
-    const user = await authService.updateProfile(req.user._id, req.body);
-    if (!user) {
-      return res.status(404).json({ message: "User not found" });
-    }
-    res.json({ success: true, user });
-  } catch (error) {
-    res.status(400).json({ message: error.message });
-  }
-};

@@ -15,17 +15,9 @@ exports.getEventById = async (eventId) => {
   return await Event.findById(eventId);
 };
 
-exports.getAllEvents = async (userId, limit, skip) => {
-
-  const [events, totalCount] = await Promise.all([
-      Event.find({ organizerId: userId }).skip(skip).limit(limit),
-      Event.countDocuments({ organizerId: userId })
-      .sort( {createdAt: -1}),
-    ]);
-  
-    return { events, totalCount };
+exports.getAllEvents = async (limit = 10, skip = 0) => {
+  return await Event.find().skip(skip).limit(limit);
 };
-
 
 exports.updateEvent = async (eventId, updateData) => {
   return await Event.findByIdAndUpdate(eventId, updateData, { new: true });

@@ -8,6 +8,7 @@ const eventSchema = new mongoose.Schema(
     startDateTime: { type: Date, required: true },
     endDateTime: { type: Date, required: true },
     timeZone: { type: String, required: true },
+    // media: [{ name: String, size: String, type: String, link: String }],
     media: [
       {
         name: { type: String },
@@ -31,15 +32,15 @@ const eventSchema = new mongoose.Schema(
       {
         type: {
           type: String,
-          // enum: Object.values(eventTableType),
+          enum: Object.values(eventTableType),
           required: true,
         },
-        // otherType: {
-        //   type: String,
-        //   required: function () {
-        //     return this.type === "Others";
-        //   },
-        // },
+        otherType: {
+          type: String,
+          required: function () {
+            return this.type === "Others";
+          },
+        },
         tableNumber: String,
         seats: Number,
       },

@@ -225,29 +225,3 @@ exports.verify2FALogin = async (userId, token) => {
 // };
 
 exports.getUserProfile = async (userId) => User.findById(userId);
-
-
-exports.updateProfile = async (userId, updateData) => {
-
-  const allowedFields = [
-    "firstName",
-    "middleName",
-    "surname",
-    "gender",
-    "phoneNumber",
-    "address",
-    "profilePicture",
-  ];
-
-  const filteredUpdateData = {};
-  Object.keys(updateData).forEach((key) => {
-    if (allowedFields.includes(key)) {
-      filteredUpdateData[key] = updateData[key];
-    }
-  });
-
-  return await User.findByIdAndUpdate(userId, filteredUpdateData, {
-    new: true,
-    runValidators: true,
-  });
-};

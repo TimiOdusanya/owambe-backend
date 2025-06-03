@@ -1,5 +1,4 @@
 const mongoose = require("mongoose");
-const { mediaType } = require("../../../utils/constantEnums");
 
 const mediaSchema = new mongoose.Schema({
   eventId: {
@@ -7,29 +6,12 @@ const mediaSchema = new mongoose.Schema({
     ref: "Event",
     required: true,
   },
-  title: { 
-    type: String, 
-    required: true 
-  },
-  type: { 
-    type: String, 
-    enum: Object.values(mediaType),
-    required: true 
-  },
-  media: [
-    {
-      name: { type: String },
-      size: { type: Number },
-      type: { type: String },
-      link: { type: String },
-    },
-  ],
-  price: { 
-    type: Number,
-    required: true 
-  },
+  title: { type: String, required: true },
+  type: { type: String, enum: ["photo", "video"], required: true },
+  price: { type: Number, required: true },
+  file: { type: String, required: true }, // URL or path to the file
   description: String,
-},  { timestamps: true });
+});
 
 // Index for faster queries
 mediaSchema.index({ eventId: 1 });

@@ -12,9 +12,6 @@ const userSchema = new mongoose.Schema(
       type: String,
       default: "",
     },
-    fullName: {
-      type: String,
-    },
     surname: {
       type: String,
       required: true,
@@ -59,15 +56,6 @@ const userSchema = new mongoose.Schema(
     resetPasswordOTP: { 
       type: String 
     },
-    profilePicture: [
-      {
-        name: { type: String },
-        size: { type: Number },
-        type: { type: String },
-        link: { type: String },
-      },
-    ],
-
   },
   { timestamps: true }
 );
