@@ -11,8 +11,15 @@ exports.getFoodById = async (eventId, foodId) => {
 };
 
 exports.getAllFood = async (eventId, limit = 10, skip = 0) => {
-  return await Food.find({ eventId }).skip(skip).limit(limit);
+  const [food, totalCount] = await Promise.all([
+    Food.find({ eventId }).skip(skip).limit(limit),
+    Food.countDocuments({ eventId })
+    .sort( {createdAt: -1}),
+  ]);
+
+  return { food, totalCount };
 };
+
 
 exports.updateFood = async (eventId, foodId, updateData) => {
   return await Food.findOneAndUpdate({ _id: foodId, eventId }, updateData, {

@@ -1,8 +1,14 @@
+const Event = require("../models/Event");
 const guestService = require("../services/guestService");
 
 exports.createGuest = async (req, res) => {
   try {
     const { eventId } = req.params;
+
+    const event = await Event.findById(eventId);
+    if (!event) {
+      return res.status(404).json({ message: "Event not found" });
+    }
     const guestData = { ...req.body, eventId };
     const guest = await guestService.createGuest(guestData);
     res.status(201).json(guest);
@@ -10,6 +16,26 @@ exports.createGuest = async (req, res) => {
     res.status(400).json({ message: error.message });
   }
 };
+
+
+exports.createMultipleGuests = async (req, res) => {
+  try {
+    const { eventId } = req.params;
+
+    const event = await Event.findById(eventId);
+    if (!event) {
+      return res.status(404).json({ message: "Event not found" });
+    }
+
+    const guestsData = req.body.map((guest) => ({ ...guest, eventId }));
+    const guests = await guestService.createMultipleGuests(guestsData);
+    res.status(201).json({ success: true, guests });
+  } catch (error) {
+    res.status(400).json({ message: error.message });
+  }
+};
+
+
 
 exports.getGuest = async (req, res) => {
   try {
@@ -26,12 +52,21 @@ exports.getAllGuests = async (req, res) => {
   try {
     const { eventId } = req.params;
     const { limit = 10, skip = 0 } = req.query;
-    const guests = await guestService.getAllGuests(
+
+    const parsedLimit = parseInt(limit);
+    const parsedSkip = parseInt(skip);
+
+    const {guests, totalCount} = await guestService.getAllGuests(
       eventId,
-      parseInt(limit),
-      parseInt(skip)
+      parsedLimit, parsedSkip
     );
-    res.json(guests);
+
+    res.json({
+      guests,
+      totalCount,
+      currentPage: Math.floor(parsedSkip / parsedLimit) + 1,
+      totalPages: Math.ceil(totalCount / parsedLimit),
+    });
   } catch (error) {
     res.status(400).json({ message: error.message });
   }

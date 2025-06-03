@@ -1,11 +1,9 @@
 const eventService = require("../services/eventService");
-const User = require("../../user/models/UserProfile.model")
-
-
+const User = require("../../user/models/UserProfile.model");
 
 exports.createEvent = async (req, res) => {
   try {
-    const userId  = req.user._id;
+    const userId = req.user._id;
 
     const userExists = await User.exists({ _id: userId });
     if (!userExists) {
@@ -13,15 +11,14 @@ exports.createEvent = async (req, res) => {
         .status(400)
         .json({ message: "Invalid organizerId. User not found." });
     }
-    
 
-     const eventData = {
-       ...req.body,
-       organizerId: userId,
-     };
+    const eventData = {
+      ...req.body,
+      organizerId: userId,
+    };
 
-     const event = await eventService.createEvent(eventData);
-     res.status(201).json(event);
+    const event = await eventService.createEvent(eventData);
+    res.status(201).json(event);
     res.status(201).json(event);
   } catch (error) {
     res.status(400).json({ message: error.message });
@@ -30,22 +27,21 @@ exports.createEvent = async (req, res) => {
 
 exports.createMultipleEvents = async (req, res) => {
   try {
-
     const userId = req.user._id;
-     const userExists = await User.exists({ _id: userId });
-     if (!userExists) {
-       return res
-         .status(400)
-         .json({ message: "Invalid organizerId. User not found." });
-     }
+    const userExists = await User.exists({ _id: userId });
+    if (!userExists) {
+      return res
+        .status(400)
+        .json({ message: "Invalid organizerId. User not found." });
+    }
 
-   const eventsData = req.body.map((event) => ({
-     ...event,
-     organizerId: userId,
-   }));
+    const eventsData = req.body.map((event) => ({
+      ...event,
+      organizerId: userId,
+    }));
 
-   const events = await eventService.createMultipleEvents(eventsData);
-   res.status(201).json(events);
+    const events = await eventService.createMultipleEvents(eventsData);
+    res.status(201).json(events);
   } catch (error) {
     res.status(400).json({ message: error.message });
   }
@@ -64,11 +60,23 @@ exports.getEvent = async (req, res) => {
 exports.getAllEvents = async (req, res) => {
   try {
     const { limit = 10, skip = 0 } = req.query;
-    const events = await eventService.getAllEvents(
-      parseInt(limit),
-      parseInt(skip)
+    const userId = req.user._id;
+
+    const parsedLimit = parseInt(limit);
+    const parsedSkip = parseInt(skip);
+
+    const {events, totalCount} = await eventService.getAllEvents(
+      userId,
+      parsedLimit,
+      parsedSkip
     );
-    res.json(events);
+
+    res.json({
+      events,
+      totalCount,
+      currentPage: Math.floor(parsedSkip / parsedLimit) + 1,
+      totalPages: Math.ceil(totalCount / parsedLimit),
+    });
   } catch (error) {
     res.status(400).json({ message: error.message });
   }

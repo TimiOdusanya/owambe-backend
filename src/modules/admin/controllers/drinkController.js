@@ -1,14 +1,18 @@
 const drinkService = require("../services/drinkService");
+const Event = require("../models/Event");
 
 exports.createDrink = async (req, res) => {
   try {
-    const { eventId } = req.params;
-    const drinkData = { ...req.body, eventId };
-    const drink = await drinkService.createDrink(drinkData);
-    res.status(201).json(drink);
-  } catch (error) {
-    res.status(400).json({ message: error.message });
-  }
+      const { eventId } = req.params;
+    
+      const event = await Event.findById(eventId);
+      if (!event) return res.status(404).json({ message: "Event not found" });
+      const drinkData = { ...req.body, eventId };
+      const drink = await drinkService.createDrink(drinkData);
+      res.status(201).json(drink);
+    } catch (error) {
+      res.status(400).json({ message: error.message });
+    }
 };
 
 exports.getDrink = async (req, res) => {
@@ -24,17 +28,23 @@ exports.getDrink = async (req, res) => {
 
 exports.getAllDrinks = async (req, res) => {
   try {
-    const { eventId } = req.params;
-    const { limit = 10, skip = 0 } = req.query;
-    const drinks = await drinkService.getAllDrinks(
-      eventId,
-      parseInt(limit),
-      parseInt(skip)
-    );
-    res.json(drinks);
-  } catch (error) {
-    res.status(400).json({ message: error.message });
-  }
+      const { eventId } = req.params;
+      const { limit = 10, skip = 0 } = req.query;
+  
+      const parsedLimit = parseInt(limit);
+      const parsedSkip = parseInt(skip);
+  
+      const { drinks, totalCount } = await drinkService.getAllDrinks(eventId, parsedLimit, parsedSkip);
+  
+      res.json({
+        drinks,
+        totalCount,
+        currentPage: Math.floor(parsedSkip / parsedLimit) + 1,
+        totalPages: Math.ceil(totalCount / parsedLimit),
+      });
+    } catch (error) {
+      res.status(400).json({ message: error.message });
+    }
 };
 
 exports.updateDrink = async (req, res) => {

@@ -29,16 +29,23 @@ exports.getAllFood = async (req, res) => {
   try {
     const { eventId } = req.params;
     const { limit = 10, skip = 0 } = req.query;
-    const food = await foodService.getAllFood(
-      eventId,
-      parseInt(limit),
-      parseInt(skip)
-    );
-    res.json(food);
+
+    const parsedLimit = parseInt(limit);
+    const parsedSkip = parseInt(skip);
+
+    const { food, totalCount } = await foodService.getAllFood(eventId, parsedLimit, parsedSkip);
+
+    res.json({
+      food,
+      totalCount,
+      currentPage: Math.floor(parsedSkip / parsedLimit) + 1,
+      totalPages: Math.ceil(totalCount / parsedLimit),
+    });
   } catch (error) {
     res.status(400).json({ message: error.message });
   }
 };
+
 
 exports.updateFood = async (req, res) => {
   try {
