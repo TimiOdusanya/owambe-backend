@@ -21,13 +21,13 @@ const guestSchema = new mongoose.Schema({
   plusOnes: { type: Number, default: 0 },
   inviteSent: { type: Boolean, default: false },
   claimedInvite: { type: Boolean, default: false },
-  qrCodeId: { type: String, unique: true, sparse: true },
+  qrCodeId: { type: String },
 },
 { timestamps: true }
 );
 
 // Index for faster queries
 guestSchema.index({ eventId: 1 });
-guestSchema.index({ qrCodeId: 1 });
+guestSchema.index({ qrCodeId: 1 }, { unique: true, sparse: true });
 
 module.exports = mongoose.model("Guest", guestSchema);
