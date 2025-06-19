@@ -22,6 +22,7 @@ const allowedOrigins = [
   "http://localhost:3000",
   "http://localhost:5173",
   "https://owambe-dashboard.vercel.app",
+  "https://owambe-website.vercel.app",
 ];
 
 app.use(
