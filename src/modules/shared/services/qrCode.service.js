@@ -43,7 +43,16 @@ exports.validateQRCode = async (eventId, qrCodeId) => {
   return {
     isValid: true,
     guestId: guest._id,
-    guestName: guest.name
+    guestName: guest.name,
+    guestEmail: guest.email,
+    guestPhone: guest.phone,
+    guestAddress: guest.address,
+    guestTableNumber: guest.tableNumber,
+    guestSeatNumber: guest.seatNumber,
+    guestRole: guest.role,
+    guestPlusOnes: guest.plusOnes,
+    guestInviteSent: guest.inviteSent,
+    guestInviteClaimed: guest.claimedInvite,
   };
 };
 
