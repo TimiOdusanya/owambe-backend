@@ -2,13 +2,13 @@ const Event = require("../models/Event");
 const Guest = require("../models/Guest");
 const { eventStatus } = require("../../../utils/constantEnums");
 
-// Helper function to calculate percentage increase
+
 const calculatePercentageIncrease = (current, previous) => {
   if (previous === 0) return current > 0 ? 100 : 0;
   return ((current - previous) / previous) * 100;
 };
 
-// Helper function to get date range for previous period
+
 const getPreviousPeriodRange = (currentStart, currentEnd) => {
   const duration = currentEnd.getTime() - currentStart.getTime();
   const previousEnd = new Date(currentStart.getTime() - 1);
@@ -132,7 +132,7 @@ exports.getAnalyticsData = async (userId) => {
   const currentYear = now.getFullYear();
   const currentMonth = now.getMonth();
   
-  // Calculate previous month and year
+
   let previousMonth, previousYear;
   if (currentMonth === 0) {
     // January - go to December of previous year
@@ -143,7 +143,7 @@ exports.getAnalyticsData = async (userId) => {
     previousYear = currentYear;
   }
   
-  // Initialize data structure for all 12 months
+ 
   const monthNames = [
     'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
     'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
