@@ -2,6 +2,7 @@ const User = require("../models/UserProfile.model");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const { generateOTP, sendEmail, generate2FASecret, verify2FACode } = require("../../../utils/otpUtils");
+const Event = require("../../admin/models/Event");
 
 
 exports.signup = async (userData) => {
@@ -250,4 +251,19 @@ exports.updateProfile = async (userId, updateData) => {
     new: true,
     runValidators: true,
   });
+};
+
+
+exports.loginWithEventCode = async (eventCode) => {
+  const event = await Event.findOne({ eventCode });
+
+  if (!event) {
+    throw new Error("Invalid event code");
+  }
+
+  const token = jwt.sign({ eventId: event._id }, process.env.JWT_SECRET, {
+    expiresIn: "1d",
+  });
+
+  return { token, event };
 };

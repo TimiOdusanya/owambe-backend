@@ -207,3 +207,27 @@ exports.updateProfile = async (req, res) => {
     res.status(400).json({ message: error.message });
   }
 };
+
+
+exports.loginWithEventCode = async (req, res) => {
+  try {
+    const { eventCode } = req.body;
+
+    const { token, event } = await authService.loginWithEventCode(eventCode);
+
+    res.cookie("event_jwt", token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+      maxAge: 24 * 60 * 60 * 1000, // 1 day
+    });
+
+    res.status(200).json({
+      message: "Event login successful",
+      token,
+      event,
+    });
+  } catch (error) {
+    res.status(400).json({ message: error.message });
+  }
+};
