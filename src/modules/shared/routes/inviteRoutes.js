@@ -3,6 +3,7 @@ const router = express.Router();
 const inviteController = require("../controllers/inviteController");
 const { authenticate } = require("../../../middleware/authMiddleware");
 
+router.post("/bulk-invite/:eventId", authenticate, inviteController.inviteAllGuests);
 router.post("/:eventId/:guestId", authenticate, inviteController.inviteGuest);
 router.post("/claim-invite/:eventId/:guestId", inviteController.claimEvent);
 router.get("/isinvite-claimed/:eventId/:guestId", inviteController.InviteClaimed);

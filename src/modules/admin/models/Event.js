@@ -27,6 +27,11 @@ const eventSchema = new mongoose.Schema(
       ref: "User",
       required: true,
     },
+    eventCode: {
+      type: String,
+      unique: true,
+      required: true,
+    },    
     tables: [
       {
         type: {

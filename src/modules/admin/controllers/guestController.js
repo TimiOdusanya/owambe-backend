@@ -48,17 +48,43 @@ exports.getGuest = async (req, res) => {
   }
 };
 
+// exports.getAllGuests = async (req, res) => {
+//   try {
+//     const { eventId } = req.params;
+//     const { limit = 10, skip = 0 } = req.query;
+
+//     const parsedLimit = parseInt(limit);
+//     const parsedSkip = parseInt(skip);
+
+//     const {guests, totalCount} = await guestService.getAllGuests(
+//       eventId,
+//       parsedLimit, parsedSkip
+//     );
+
+//     res.json({
+//       guests,
+//       totalCount,
+//       currentPage: Math.floor(parsedSkip / parsedLimit) + 1,
+//       totalPages: Math.ceil(totalCount / parsedLimit),
+//     });
+//   } catch (error) {
+//     res.status(400).json({ message: error.message });
+//   }
+// };
+
 exports.getAllGuests = async (req, res) => {
   try {
     const { eventId } = req.params;
-    const { limit = 10, skip = 0 } = req.query;
+    const { limit = 10, skip = 0, status = 'all' } = req.query;
 
     const parsedLimit = parseInt(limit);
     const parsedSkip = parseInt(skip);
 
-    const {guests, totalCount} = await guestService.getAllGuests(
+    const { guests, totalCount } = await guestService.getAllGuests(
       eventId,
-      parsedLimit, parsedSkip
+      status,
+      parsedLimit,
+      parsedSkip
     );
 
     res.json({
@@ -71,6 +97,8 @@ exports.getAllGuests = async (req, res) => {
     res.status(400).json({ message: error.message });
   }
 };
+
+
 
 exports.updateGuest = async (req, res) => {
   try {

@@ -1,13 +1,25 @@
+const generateEventCode = require("../../../utils/generateCode");
 const Event = require("../models/Event");
 
 exports.createEvent = async (eventData) => {
-  const event = new Event(eventData);
+  const eventCode = generateEventCode();
+
+  const event = new Event({
+    ...eventData,
+    eventCode,
+  });
+
   await event.save();
   return event;
 };
 
 exports.createMultipleEvents = async (eventsData) => {
-  const events = await Event.insertMany(eventsData);
+  const eventsWithCodes = eventsData.map(event => ({
+    ...event,
+    eventCode: generateEventCode(),
+  }));
+
+  const events = await Event.insertMany(eventsWithCodes);
   return events;
 };
 

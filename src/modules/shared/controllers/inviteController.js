@@ -146,3 +146,44 @@ exports.getEventForOneGuest = async (req, res) => {
     return res.status(500).json({ message: "Internal server error" });
   }
 };
+
+
+
+exports.inviteAllGuests = async (req, res) => {
+  try {
+    const { eventId } = req.params;
+
+    const event = await Event.findById(eventId);
+    if (!event) return res.status(404).json({ message: "Event not found" });
+
+    const guests = await Guest.find({ eventId, inviteSent: { $ne: true } });
+
+    if (!guests.length) {
+      return res.status(200).json({ message: "No guests to invite or all already invited." });
+    }
+
+    const results = await Promise.allSettled(
+      guests.map(async (guest) => {
+        try {
+          await inviteService.inviteGuest({ event, guest });
+          guest.inviteSent = true;
+          await guest.save();
+          return { guestId: guest._id, status: "fulfilled" };
+        } catch (err) {
+          return { guestId: guest._id, status: "rejected", reason: err.message };
+        }
+      })
+    );
+
+    const success = results.filter(r => r.status === "fulfilled").length;
+    const failed = results.filter(r => r.status === "rejected");
+
+    res.status(200).json({
+      message: `Invited ${success} guests.`,
+      failed: failed.map(f => ({ guestId: f.guestId, reason: f.reason })),
+    });
+
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};

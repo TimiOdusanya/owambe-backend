@@ -71,11 +71,12 @@ exports.getAllOrders = async (eventId, limit = 10, skip = 0) => {
     return {
       ...order,
       items: populatedItems,
-      guestName: guest?.name || 'Unknown',
-      tableNumber: guest?.tableNumber || '',
-      seatNumber: guest?.seatNumber || '',
+      guestName: guest?.name,
+      tableNumber: guest?.tableNumber,
+      seatNumber: guest?.seatNumber,
+      role: guest.role,
       orderDate: order.createdAt,
-      orderTime: order.createdAt
+      orderTime: order.createdAt,
     };
   }));
 
