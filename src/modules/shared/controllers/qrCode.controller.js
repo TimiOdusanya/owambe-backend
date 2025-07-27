@@ -29,3 +29,42 @@ exports.getEventDetailsForQR = async (req, res) => {
     res.status(400).json({ message: error.message });
   }
 }; 
+
+
+exports.generateEventQRCode = async (req, res) => {
+  try {
+    const { eventId } = req.params;
+    const qrCodeData = await qrCodeService.generateEventQRCode(eventId);
+    res.json(qrCodeData);
+  } catch (error) {
+    res.status(400).json({ message: error.message });
+  }
+};
+
+
+exports.verifyEmailForGuestId = async (req, res) => {
+  try {
+    const { eventId } = req.params;
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({ message: "Email is required" });
+    }
+
+    const guest = await qrCodeService.findGuestByEmail(eventId, email.toLowerCase());
+
+    if (!guest) {
+      return res.status(404).json({ message: "Guest not found with that email for this event" });
+    }
+
+    if (!guest.claimedInvite) {
+      return res.status(403).json({ message: "Invite not claimed yet" });
+    }
+
+
+
+    res.json({ guestId: guest._id });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};

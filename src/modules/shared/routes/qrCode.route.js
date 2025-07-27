@@ -3,6 +3,12 @@ const router = express.Router();
 const qrCodeController = require("../controllers/qrCode.controller");
 const { authenticate } = require("../../../middleware/authMiddleware");
 
+
+router.post("/verify-email/:eventId", qrCodeController.verifyEmailForGuestId);
+
+
+router.get("/generate/event/:eventId", qrCodeController.generateEventQRCode);
+
 // Generate QR code for a guest
 router.get("/generate/:eventId/:guestId", qrCodeController.generateGuestQRCode);
 

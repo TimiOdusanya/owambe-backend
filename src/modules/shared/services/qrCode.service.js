@@ -16,7 +16,7 @@ exports.generateGuestQRCode = async (eventId, guestId) => {
   }
 
   // Generate QR code URL
-  const qrCodeUrl = `https://owambe-website.vercel.app/guest/${eventId}/${guest.qrCodeId}`;
+  const qrCodeUrl = `https://owambe-website.vercel.app/scanner-app/guest-list?eventid=${eventId}/&qrcodeid=${guest.qrCodeId}`;
   
   // Generate QR code image
   const qrCodeImage = await QRCode.toDataURL(qrCodeUrl);
@@ -109,3 +109,33 @@ exports.getEventDetailsForQR = async (eventId, qrCodeId) => {
     }
   };
 }; 
+
+
+
+exports.generateEventQRCode = async (eventId) => {
+  const event = await Event.findById(eventId);
+  if (!event) throw new Error("Event not found");
+
+  // Create a unique QR code ID if not already
+  if (!event.qrCodeId) {
+    event.qrCodeId = uuidv4();
+    await event.save();
+  }
+
+  // Create the QR code URL
+  const qrCodeUrl = `https://owambe-website.vercel.app/${eventId}`;
+
+  const qrCodeImage = await QRCode.toDataURL(qrCodeUrl);
+
+  return {
+    qrCodeId: event.qrCodeId,
+    qrCodeUrl,
+    qrCodeImage
+  };
+};
+
+
+exports.findGuestByEmail = async (eventId, email) => {
+  return await Guest.findOne({ eventId, email: email.toLowerCase().trim() });
+};
+
