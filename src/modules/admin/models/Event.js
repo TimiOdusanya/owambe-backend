@@ -49,7 +49,17 @@ const eventSchema = new mongoose.Schema(
         seats: Number,
       },
     ],
-    qrCode: String,
+    qrCode: {
+      qrCodeId: {
+        type: String,
+      },
+      qrCodeUrl: {
+        type: String,
+      },
+      qrCodeImage: {
+        type: String,
+      },
+    }
   },
   { timestamps: true }
 );
