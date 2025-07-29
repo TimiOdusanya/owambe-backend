@@ -84,6 +84,7 @@ exports.getEventDetailsForQR = async (eventId, qrCodeId) => {
       timeZone: event.timeZone,
       description: event.description,
       tables: event.tables,
+      qrCode: event.qrCode,
       menu: {
         food: food.map(item => ({
           id: item._id,
@@ -116,22 +117,22 @@ exports.generateEventQRCode = async (eventId) => {
   const event = await Event.findById(eventId);
   if (!event) throw new Error("Event not found");
 
-  // Create a unique QR code ID if not already
-  if (!event.qrCodeId) {
-    event.qrCodeId = uuidv4();
+
+  if (!event.qrCode?.qrCodeId) {
+    const qrCodeId = uuidv4();
+    const qrCodeUrl = `https://owambe-website.vercel.app/${eventId}`;
+    const qrCodeImage = await QRCode.toDataURL(qrCodeUrl);
+
+    event.qrCode = {
+      qrCodeId,
+      qrCodeUrl,
+      qrCodeImage
+    };
+
     await event.save();
   }
 
-  // Create the QR code URL
-  const qrCodeUrl = `https://owambe-website.vercel.app/${eventId}`;
-
-  const qrCodeImage = await QRCode.toDataURL(qrCodeUrl);
-
-  return {
-    qrCodeId: event.qrCodeId,
-    qrCodeUrl,
-    qrCodeImage
-  };
+  return event.qrCode;
 };
 
 
