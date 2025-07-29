@@ -6,7 +6,7 @@ const { authenticate } = require("../../../middleware/authMiddleware");
 router.post('/:eventId', authenticate, guestController.createGuest);
 router.post('/bulk/:eventId', authenticate, guestController.createMultipleGuests);
 router.get('/:eventId/:guestId', authenticate, guestController.getGuest);
-router.get('/:eventId', authenticate, guestController.getAllGuests);
+router.get('/:eventId', guestController.getAllGuests);
 router.patch('/:eventId/:guestId', authenticate, guestController.updateGuest);
 router.delete('/:eventId/:guestId', authenticate, guestController.deleteGuest);
 router.delete('/:eventId', authenticate, guestController.deleteMultipleGuests);
