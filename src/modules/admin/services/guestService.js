@@ -30,9 +30,9 @@ exports.getAllGuests = async (eventId, status = 'all', limit = 10, skip = 0) => 
   const query = { eventId };
 
   if (status === 'confirmed') {
-    query.claimedInvite = true;
+    query.isConfirmed = true;
   } else if (status === 'unconfirmed') {
-    query.claimedInvite = false;
+    query.isConfirmed = false;
   }
 
   const [guests, totalCount] = await Promise.all([
