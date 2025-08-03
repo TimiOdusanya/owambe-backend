@@ -21,6 +21,7 @@ const guestSchema = new mongoose.Schema({
   plusOnes: { type: Number, default: 0 },
   inviteSent: { type: Boolean, default: false },
   claimedInvite: { type: Boolean, default: false },
+  isConfirmed: { type: Boolean, default: false },
   qrCodeId: { type: String },
 },
 { timestamps: true }

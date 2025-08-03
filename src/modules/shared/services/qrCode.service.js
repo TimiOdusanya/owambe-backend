@@ -40,6 +40,14 @@ exports.validateQRCode = async (eventId, qrCodeId) => {
     throw new Error("Invite not claimed by this guest");
   }
 
+
+  if (guest.isConfirmed) {
+    throw new Error("Guest has already been confirmed");
+  }
+
+  guest.isConfirmed = true;
+  await guest.save();
+
   return {
     isValid: true,
     guestId: guest._id,
@@ -53,6 +61,7 @@ exports.validateQRCode = async (eventId, qrCodeId) => {
     guestPlusOnes: guest.plusOnes,
     guestInviteSent: guest.inviteSent,
     guestInviteClaimed: guest.claimedInvite,
+    isConfirmed: guest.isConfirmed
   };
 };
 
