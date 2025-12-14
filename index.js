@@ -2,6 +2,7 @@ const express = require("express");
 const helmet = require("helmet");
 const cors = require("cors");
 const cookieParser = require("cookie-parser");
+const path = require("path");
 const dotenv = require("dotenv");
 const db = require("./src/db/db");
 const logger = require("./src/lib/log/winston.log");
@@ -17,13 +18,10 @@ const sharedRoutes = require('./src/modules/shared/routes');
 // Load environment variables first
 dotenv.config();
 
+const { getAllowedOrigins } = require("./src/utils/urlConfig");
+
 const app = express();
-const allowedOrigins = [
-  "http://localhost:3000",
-  "http://localhost:5173",
-  "https://owambe-dashboard.vercel.app",
-  "https://owambe-website.vercel.app",
-];
+const allowedOrigins = getAllowedOrigins();
 
 app.use(
   cors({
@@ -43,9 +41,11 @@ app.use(
 // app.use(cors());
 app.use(httpLogger);
 app.use(helmet());
-app.use(cookieParser()); // Fix applied
+app.use(cookieParser());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+app.use("/assets", express.static(path.join(__dirname, "public/assets")));
 
 app.get("/", (req, res) => {
   res.json({ message: "Hello from server" });
