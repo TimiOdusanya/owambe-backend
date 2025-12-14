@@ -4,6 +4,7 @@ const Food = require("../../admin/models/Food");
 const Drink = require("../../admin/models/Drink");
 const QRCode = require('qrcode');
 const { v4: uuidv4 } = require('uuid');
+const { getFrontendUrl } = require("../../../utils/urlConfig");
 
 exports.generateGuestQRCode = async (eventId, guestId) => {
   const guest = await Guest.findOne({ _id: guestId, eventId });
@@ -15,8 +16,7 @@ exports.generateGuestQRCode = async (eventId, guestId) => {
     await guest.save();
   }
 
-  // Generate QR code URL
-  const qrCodeUrl = `https://owambe-website.vercel.app/scanner-app/guest-list?eventid=${eventId}/&qrcodeid=${guest.qrCodeId}`;
+  const qrCodeUrl = `${getFrontendUrl()}/scanner-app/guest-list?eventid=${eventId}/&qrcodeid=${guest.qrCodeId}`;
   
   // Generate QR code image
   const qrCodeImage = await QRCode.toDataURL(qrCodeUrl);
@@ -42,7 +42,7 @@ exports.validateQRCode = async (eventId, qrCodeId) => {
 
 
   if (guest.isConfirmed) {
-    throw new Error("Guest has already been confirmed");
+    throw new Error("Guest has already been checked in");
   }
 
   guest.isConfirmed = true;
@@ -129,7 +129,7 @@ exports.generateEventQRCode = async (eventId) => {
 
   if (!event.qrCode?.qrCodeId) {
     const qrCodeId = uuidv4();
-    const qrCodeUrl = `https://owambe-website.vercel.app/${eventId}`;
+    const qrCodeUrl = `${getFrontendUrl()}/${eventId}`;
     const qrCodeImage = await QRCode.toDataURL(qrCodeUrl);
 
     event.qrCode = {

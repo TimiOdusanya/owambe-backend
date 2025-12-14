@@ -2,6 +2,7 @@ const User = require("../models/UserProfile.model");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const { generateOTP, sendEmail, generate2FASecret, verify2FACode } = require("../../../utils/otpUtils");
+const { getDashboardUrl } = require("../../../utils/urlConfig");
 const Event = require("../../admin/models/Event");
 
 
@@ -26,7 +27,7 @@ exports.signup = async (userData) => {
     subject: "Welcome to Owambe ERP",
     body: "Thank you for signing up! We're excited to have you on board.",
     buttonText: "Get Started",
-    buttonLink: "https://owambe-dashboard.vercel.app",
+    buttonLink: getDashboardUrl(),
   });
 
   // Send OTP via email

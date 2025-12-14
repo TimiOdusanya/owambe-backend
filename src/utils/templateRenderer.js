@@ -2,6 +2,7 @@
 const ejs = require("ejs");
 const path = require("path");
 const fs = require("fs");
+const { getBackendUrl } = require("./urlConfig");
 
 // Load template files
 const headerTemplate = fs.readFileSync(
@@ -21,9 +22,13 @@ exports.renderEmailTemplate = (templateName, data) => {
     "utf8"
   );
 
-  const header = ejs.render(headerTemplate);
+  const backendUrl = getBackendUrl();
+  const logoUrl = backendUrl ? `${backendUrl}/assets/owambe-logo.png` : "";
+  const header = ejs.render(headerTemplate, { LOGO_URL: logoUrl });
   const footer = ejs.render(footerTemplate);
   const body = ejs.render(emailTemplate, data);
+
+  console.log("logoUrl", logoUrl);
 
   return `
     <!DOCTYPE html>
