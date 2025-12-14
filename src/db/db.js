@@ -1,22 +1,25 @@
 const mongoose = require("mongoose");
 const dotenv = require("dotenv");
-// const { currentEnv } = require('../utils/envHandler')
+const { isProduction } = require("../utils/urlConfig");
 dotenv.config();
 
 module.exports = async () => {
-  const Db = process.env.MONGO_URI;
-  // currentEnv() === 'production'
-  //     ? process.env.REMOTE_DATABASE
-  //     : process.env.LOCAL_DATABASE
+  const Db = isProduction
+    ? process.env.PROD_MONGO_URI
+    : process.env.MONGO_URI;
+
   if (!Db) {
+    const envType = isProduction ? "PROD_MONGO_URI" : "MONGO_URI";
     throw new Error(
-      "❌ MONGO_URI is not defined in the environment variables!"
+      `❌ ${envType} is not defined in the environment variables!`
     );
   }
+
   await mongoose
     .connect(Db)
     .then(() => {
-      console.log("Successfully connected to database");
+      const envType = isProduction ? "production" : "development";
+      console.log(`Successfully connected to ${envType} database`);
     })
     .catch((err) => {
       console.error(
