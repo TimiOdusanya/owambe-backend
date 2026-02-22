@@ -59,7 +59,13 @@ const eventSchema = new mongoose.Schema(
       qrCodeImage: {
         type: String,
       },
-    }
+    },
+    // Payout bank account (admin receives payments for this event here; required for withdrawals)
+    payoutBankCode: { type: String, default: null },
+    payoutBankName: { type: String, default: null },
+    payoutAccountNumber: { type: String, default: null },
+    payoutAccountName: { type: String, default: null },
+    payoutAccountType: { type: String, default: null },
   },
   { timestamps: true }
 );

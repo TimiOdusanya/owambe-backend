@@ -36,8 +36,10 @@ const getBackendUrl = () => {
 
 const getAllowedOrigins = () => {
   const origins = [
-    "http://localhost:3000",
-    "http://localhost:5173",
+   "http://localhost:3000",
+  "http://localhost:3001",
+  "http://localhost:5173",
+  "https://owambe-dashboard.vercel.app",
   ];
 
   if (process.env.DASHBOARD_URL_DEV) origins.push(process.env.DASHBOARD_URL_DEV);

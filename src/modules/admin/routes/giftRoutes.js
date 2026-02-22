@@ -4,6 +4,7 @@ const giftController = require('../controllers/giftController');
 const { authenticate } = require("../../../middleware/authMiddleware");
 
 router.post('/:eventId/wishlist', authenticate, giftController.createWishlist);
+router.post('/:eventId/wishlist/bulk', authenticate, giftController.createMultipleWishlists);
 router.post('/:eventId/cashgifts', authenticate, giftController.createCashgift);
 router.get('/:eventId/wishlist/:wishlistId', authenticate, giftController.getWishlist);
 router.get('/:eventId/cashgifts/:cashgiftId', authenticate, giftController.getCashgift);

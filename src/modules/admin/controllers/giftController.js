@@ -11,6 +11,22 @@ exports.createWishlist = async (req, res) => {
   }
 };
 
+/**
+ * POST /api/v1/gifts/:eventId/wishlist/bulk
+ * Body: { items: [ { name, price, description? }, ... ] }
+ * Create multiple wishlist items for the event. Authenticated; organizer only (enforced by event access).
+ */
+exports.createMultipleWishlists = async (req, res) => {
+  try {
+    const { eventId } = req.params;
+    const { items } = req.body;
+    const created = await giftService.createMultipleWishlists(eventId, items);
+    res.status(201).json({ message: "Wishlists created", count: created.length, wishlists: created });
+  } catch (error) {
+    res.status(400).json({ message: error.message });
+  }
+};
+
 exports.createCashgift = async (req, res) => {
   try {
     const { eventId } = req.params;

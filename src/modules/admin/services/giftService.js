@@ -9,6 +9,30 @@ exports.createGift = async (giftData) => {
   return gift;
 };
 
+/**
+ * Create multiple wishlist items for an event in one request.
+ * @param {string} eventId - Event ID
+ * @param {Array<{ name: string, price: number, description?: string }>} items - Wishlist items
+ * @returns {Promise<Array>} Created gifts
+ */
+exports.createMultipleWishlists = async (eventId, items) => {
+  const event = await Event.findById(eventId);
+  if (!event) throw new Error("Event not found");
+  if (!Array.isArray(items) || items.length === 0) {
+    throw new Error("items must be a non-empty array");
+  }
+  const toInsert = items.map((item) => ({
+    eventId,
+    type: "wishlist",
+    name: item.name,
+    price: Number(item.price),
+    description: item.description || undefined,
+    media: item.media || [],
+  }));
+  const created = await Gift.insertMany(toInsert);
+  return created;
+};
+
 exports.getGiftById = async (eventId, giftId) => {
   return await Gift.findOne({ _id: giftId, eventId });
 };

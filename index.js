@@ -11,8 +11,9 @@ const httpLogger = require("./src/lib/log/morgan.log");
 
 //routes
 const authRoutes = require("./src/modules/user/routes/userAuth.route");
-const routes = require('./src/modules/admin/routes');
-const sharedRoutes = require('./src/modules/shared/routes');
+const routes = require("./src/modules/admin/routes");
+const sharedRoutes = require("./src/modules/shared/routes");
+const paymentRoutes = require("./src/modules/payment/routes/payment.routes");
 
 
 // Load environment variables first
@@ -57,6 +58,7 @@ console.log("Starting server...");
 app.use("/api/v1/auth", authRoutes);
 app.use("/api/v1", routes);
 app.use("/api/v1", sharedRoutes);
+app.use("/api/v1/payment", paymentRoutes);
 
 
 const port = process.env.PORT || 8081;
