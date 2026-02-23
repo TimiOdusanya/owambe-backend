@@ -100,6 +100,26 @@ exports.initiatePayment = async (req, res) => {
 };
 
 /**
+ * POST /api/v1/payment/submit-pin
+ * Body: purchase_id, pin (required when initiate returned next_action "pin")
+ */
+exports.submitPin = async (req, res) => {
+  try {
+    const { purchase_id, pin } = req.body;
+    if (!purchase_id || pin === undefined || pin === null) {
+      return res.status(400).json({ message: "purchase_id and pin are required" });
+    }
+
+    const result = await paymentService.submitPinAndGetFlwRef(purchase_id, pin);
+    return res.status(200).json(result);
+  } catch (error) {
+    return res
+      .status(400)
+      .json({ message: error.message || "PIN submission failed" });
+  }
+};
+
+/**
  * POST /api/v1/payment/validate
  * Body: flw_ref, otp
  */
@@ -140,7 +160,7 @@ exports.verifyPayment = async (req, res) => {
       return res.status(200).json({
         success: false,
         status: result.status,
-        message: "Payment not yet successful",
+        message: result.message || "Payment not yet successful",
       });
     }
     return res.status(200).json({
@@ -158,10 +178,26 @@ exports.verifyPayment = async (req, res) => {
 
 /**
  * POST /api/v1/payment/webhook
- * Flutterwave webhook (charge.completed). No auth; verify signature in production.
+ * Flutterwave webhook (charge.completed). No auth; verifies flutterwave-signature when FLW_SECRET_HASH is set.
  */
 exports.webhook = async (req, res) => {
   try {
+    const secretHash = process.env.FLW_SECRET_HASH;
+    if (secretHash) {
+      const signature = req.headers["flutterwave-signature"];
+      const rawBody = req.rawBody;
+      if (!signature || !rawBody) {
+        return res.status(401).send("Invalid webhook: missing signature or body");
+      }
+      const crypto = require("crypto");
+      const hash = crypto
+        .createHmac("sha256", secretHash)
+        .update(rawBody)
+        .digest("base64");
+      if (hash !== signature) {
+        return res.status(401).send("Invalid webhook signature");
+      }
+    }
     const payload = req.body;
     const result = await paymentService.handleWebhook(payload);
     return res.status(200).json(result);

@@ -11,6 +11,32 @@ const createTxRef = () =>
   `owambe_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
 
 /**
+ * Ensure the payer is a guest for this event and has accepted (claimed) the invite.
+ * Call before allowing payment. Throws if guest not found or invite not claimed.
+ * @param {string} eventId
+ * @param {{ guestId?: string, email?: string }} identifiers - at least one required
+ * @returns {Promise<{ guest: Object }>} the guest document (for optional use)
+ */
+const ensureGuestHasClaimedInvite = async (eventId, { guestId, email } = {}) => {
+  if (!guestId && !email) {
+    throw new Error("Guest must be identified by guestId or email to make a payment");
+  }
+  let guest;
+  if (guestId) {
+    guest = await Guest.findOne({ _id: guestId, eventId }).lean();
+  } else {
+    guest = await Guest.findOne({ eventId, email: new RegExp(`^${String(email).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i") }).lean();
+  }
+  if (!guest) {
+    throw new Error("Guest not found for this event. You must be invited and accept the invite before paying.");
+  }
+  if (!guest.claimedInvite) {
+    throw new Error("You must accept (claim) your invite before making a payment.");
+  }
+  return { guest };
+};
+
+/**
  * Validate event, guest (if provided), and media items; compute total. For purpose=media.
  */
 const validateAndComputeTotal = async (eventId, guestId, mediaIds) => {
@@ -110,6 +136,8 @@ const initiatePayment = async ({
   cvv,
   redirect_url,
 }) => {
+  await ensureGuestHasClaimedInvite(eventId, { guestId: guestId || null, email });
+
   let totalAmount;
   if (purpose === paymentPurpose.WISHLIST) {
     const result = await validateForWishlist(eventId, guestId, wishlistId);
@@ -142,19 +170,30 @@ const initiatePayment = async ({
 
   if (method === paymentMethod.CARD) {
     const payload = {
-      card_number,
+      card_number: String(card_number).replace(/\s/g, ""),
       expiry_month: String(expiry_month).padStart(2, "0"),
-      expiry_year: String(expiry_year).length === 2 ? expiry_year : String(expiry_year).slice(-2),
-      cvv,
-      amount: String(Math.round(totalAmount)),
+      expiry_year: String(expiry_year).length === 2 ? String(expiry_year) : String(expiry_year).slice(-2),
+      cvv: String(cvv),
+      amount: Math.round(Number(totalAmount)),
       currency: "NGN",
       email,
       fullname,
       phone_number: phone_number || "",
       tx_ref: txRef,
-      redirect_url: redirect_url || "",
+      ...(redirect_url && redirect_url.trim() ? { redirect_url: redirect_url.trim() } : {}),
     };
-    const response = await flutterwaveService.chargeCard(payload);
+    let response;
+    try {
+      response = await flutterwaveService.chargeCard(payload);
+    } catch (err) {
+      purchase.status = paymentStatus.FAILED;
+      await purchase.save();
+      const cause = err.cause?.message || err.cause?.code;
+      const msg =
+        err.message ||
+        (cause ? `Card charge request failed: ${cause}` : "Card charge request failed. Check network and Flutterwave API availability.");
+      throw new Error(msg);
+    }
 
     if (response.status === "error") {
       purchase.status = paymentStatus.FAILED;
@@ -162,30 +201,72 @@ const initiatePayment = async ({
       throw new Error(response.message || "Card charge failed");
     }
 
-    const meta = response.meta?.authorization || {};
+    // Flutterwave v3: for card, response may have only meta (no data) when mode is "pin".
+    // Per Flutterwave docs, PIN flow requires a second Charge.card() with PIN to get flw_ref, then validate with OTP.
+    const meta = response.meta?.authorization || response.data?.meta?.authorization || {};
     const data = response.data || {};
-    const mode = meta.mode;
+    const mode = (meta.mode || "").toLowerCase();
+    const flwRefFromApi =
+      data?.flw_ref ||
+      data?.flwRef ||
+      meta?.flw_ref ||
+      meta?.flwRef ||
+      meta?.reference ||
+      (data?.meta?.authorization && (data.meta.authorization.flw_ref || data.meta.authorization.reference)) ||
+      null;
 
-    purchase.flwRef = data.flw_ref || null;
-    purchase.flwTransactionId = data.id || null;
-    purchase.meta = { authorization: meta, processor_response: data.processor_response };
-    await purchase.save();
+    purchase.flwRef = flwRefFromApi;
+    purchase.flwTransactionId = data?.id || null;
+    purchase.meta = purchase.meta || {};
+    purchase.meta.authorization = meta;
+    purchase.meta.processor_response = data?.processor_response;
 
-    if (mode === "otp") {
+    // When mode is "pin", Flutterwave does not return data/flw_ref until we send PIN in a second charge call.
+    if (mode === "pin" && !flwRefFromApi) {
+      purchase.meta.chargePayload = {
+        card_number: String(card_number).replace(/\s/g, ""),
+        expiry_month: String(expiry_month).padStart(2, "0"),
+        expiry_year: String(expiry_year).length === 2 ? String(expiry_year) : String(expiry_year).slice(-2),
+        cvv: String(cvv),
+        amount: Math.round(Number(totalAmount)),
+        currency: "NGN",
+        email,
+        fullname,
+        phone_number: phone_number || "",
+        tx_ref: txRef,
+        ...(redirect_url && redirect_url.trim() ? { redirect_url: redirect_url.trim() } : {}),
+      };
+      await purchase.save();
       return {
         success: true,
-        next_action: "otp",
-        message: response.data?.processor_response || "OTP sent to your phone",
-        flw_ref: data.flw_ref,
+        next_action: "pin",
+        message: "Enter your card PIN to continue",
         tx_ref: txRef,
         purchase_id: purchase._id,
       };
     }
-    if (mode === "redirect" && meta.redirect) {
+
+    purchase.meta.processor_response = data?.processor_response;
+    await purchase.save();
+
+    // OTP: we have flw_ref (from first response or from a previous PIN step)
+    if (mode === "otp" || (mode === "pin" && flwRefFromApi)) {
+      const flwRef = flwRefFromApi || purchase.flwRef;
+      return {
+        success: true,
+        next_action: "otp",
+        message: data?.processor_response || "OTP sent to your phone",
+        flw_ref: flwRef || undefined,
+        tx_ref: txRef,
+        purchase_id: purchase._id,
+      };
+    }
+    const redirectUrl = meta.redirect || meta.redirect_url;
+    if (mode === "redirect" && redirectUrl) {
       return {
         success: true,
         next_action: "redirect",
-        redirect_url: meta.redirect,
+        redirect_url: redirectUrl,
         tx_ref: txRef,
         flw_transaction_id: data.id,
         purchase_id: purchase._id,
@@ -201,11 +282,13 @@ const initiatePayment = async ({
         purchase_id: purchase._id,
       };
     }
+    // Pending (e.g. auth mode we don't map, or async completion). Still return flw_ref so frontend can show OTP and call validate.
+    const flwRefPending = flwRefFromApi || data.flw_ref || purchase.flwRef;
     return {
       success: true,
       next_action: "pending",
       message: data.processor_response || "Payment pending",
-      flw_ref: data.flw_ref,
+      flw_ref: flwRefPending || undefined,
       tx_ref: txRef,
       purchase_id: purchase._id,
     };
@@ -254,6 +337,58 @@ const initiatePayment = async ({
   }
 
   throw new Error("Invalid payment method");
+};
+
+/**
+ * Submit card PIN (second step of Flutterwave PIN flow). Returns flw_ref for OTP step.
+ * Per Flutterwave docs: first charge returns mode "pin" with no data; second Charge.card with PIN returns flw_ref.
+ */
+const submitPinAndGetFlwRef = async (purchaseId, pin) => {
+  const purchase = await MediaPurchase.findById(purchaseId);
+  if (!purchase) throw new Error("Purchase not found");
+  if (purchase.status !== paymentStatus.PENDING) {
+    throw new Error("Purchase is no longer pending");
+  }
+  const chargePayload = purchase.meta?.chargePayload;
+  if (!chargePayload) throw new Error("No pending PIN step for this purchase");
+
+  // Per Flutterwave v3 docs: same charge card endpoint, add authorization: { mode, pin }
+  const payloadWithPin = {
+    ...chargePayload,
+    authorization: {
+      mode: "pin",
+      pin: String(pin).trim(),
+    },
+  };
+  const response = await flutterwaveService.chargeCardWithAuthorization(payloadWithPin);
+
+  if (response.status === "error") {
+    throw new Error(response.message || "PIN authorization failed");
+  }
+
+  const data = response.data || {};
+  const meta = response.meta?.authorization || {};
+  const flwRef = data.flw_ref || data.flwRef || meta.flw_ref || meta.reference || null;
+  if (!flwRef) {
+    throw new Error("No reference received from payment provider. Please try again.");
+  }
+
+  purchase.flwRef = flwRef;
+  purchase.flwTransactionId = data.id || null;
+  purchase.meta = purchase.meta || {};
+  delete purchase.meta.chargePayload;
+  purchase.meta.authorization = meta;
+  purchase.meta.processor_response = data.processor_response;
+  await purchase.save();
+
+  return {
+    success: true,
+    next_action: "otp",
+    message: data.processor_response || "OTP sent to your phone",
+    flw_ref: flwRef,
+    tx_ref: purchase.txRef,
+    purchase_id: purchase._id,
+  };
 };
 
 /**
@@ -316,7 +451,12 @@ const verifyAndCompletePurchase = async (transactionIdOrTxRef, { byTxRef = false
   }
 
   if (verifyRes.status === "error") {
-    throw new Error(verifyRes.message || "Verification failed");
+    return {
+      success: false,
+      status: "error",
+      message: verifyRes.message || "Payment not yet completed. Complete the OTP step or try again.",
+      purchase,
+    };
   }
 
   const data = verifyRes.data || {};
@@ -336,20 +476,23 @@ const verifyAndCompletePurchase = async (transactionIdOrTxRef, { byTxRef = false
 };
 
 /**
- * Handle Flutterwave webhook (charge.completed). Verify and complete purchase by tx_ref.
+ * Handle Flutterwave webhook (charge.completed).
+ * Supports both v3 (event, tx_ref, successful) and v4 (type, reference, succeeded) payload shapes.
  */
 const handleWebhook = async (payload) => {
-  const event = payload.event;
+  const eventType = payload.event || payload.type;
   const data = payload.data || {};
 
-  if (event !== "charge.completed") {
+  if (eventType !== "charge.completed") {
     return { handled: false };
   }
 
-  const txRef = data.tx_ref;
+  const txRef = data.tx_ref || data.reference;
   const transactionId = data.id;
   const amount = data.amount;
   const status = data.status;
+  const isSuccess =
+    status === "successful" || status === "succeeded";
 
   const purchase = await MediaPurchase.findOne({ txRef });
   if (!purchase) return { handled: true, message: "Purchase not found" };
@@ -358,7 +501,7 @@ const handleWebhook = async (payload) => {
     return { handled: true, message: "Already completed" };
   }
 
-  if (status !== "successful") {
+  if (!isSuccess) {
     return { handled: true, message: "Charge not successful" };
   }
 
@@ -383,7 +526,7 @@ const handleWebhook = async (payload) => {
 const getPurchasedMediaIds = async (eventId, { guestId, email } = {}) => {
   const query = { eventId, status: paymentStatus.COMPLETED, purpose: paymentPurpose.MEDIA };
   if (guestId) query.guestId = guestId;
-  if (email) query.guestEmail = email;
+  if (email) query.guestEmail = new RegExp(`^${email.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i");
   const purchases = await MediaPurchase.find(query);
   const ids = new Set();
   purchases.forEach((p) => {
@@ -400,6 +543,7 @@ module.exports = {
   validateForWishlist,
   validateForGift,
   initiatePayment,
+  submitPinAndGetFlwRef,
   validateOtpAndComplete,
   verifyAndCompletePurchase,
   handleWebhook,
