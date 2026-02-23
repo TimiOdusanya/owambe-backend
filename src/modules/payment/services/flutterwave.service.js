@@ -11,7 +11,8 @@ const getClient = () => {
   if (!publicKey || !secretKey) {
     throw new Error("FLW_PUBLIC_KEY and FLW_SECRET_KEY must be set");
   }
-  return new Flutterwave(publicKey, secretKey);
+  const baseUrl = process.env.FLW_BASE_URL;
+  return new Flutterwave(publicKey, secretKey, baseUrl || undefined);
 };
 
 const getEncryptionKey = () => {

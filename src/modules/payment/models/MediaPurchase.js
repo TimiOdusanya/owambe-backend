@@ -52,7 +52,6 @@ const mediaPurchaseSchema = new mongoose.Schema(
 );
 
 mediaPurchaseSchema.index({ eventId: 1, guestId: 1 });
-mediaPurchaseSchema.index({ txRef: 1 });
 mediaPurchaseSchema.index({ status: 1 });
 
 mediaPurchaseSchema.index({ wishlistId: 1 });

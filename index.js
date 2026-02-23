@@ -43,7 +43,14 @@ app.use(
 app.use(httpLogger);
 app.use(helmet());
 app.use(cookieParser());
-app.use(express.json());
+// Capture raw body for webhook signature verification (Flutterwave uses HMAC of raw body)
+app.use(
+  express.json({
+    verify: (req, _res, buf) => {
+      req.rawBody = buf;
+    },
+  })
+);
 app.use(express.urlencoded({ extended: true }));
 
 app.use("/assets", express.static(path.join(__dirname, "public/assets")));

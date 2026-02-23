@@ -6,6 +6,7 @@ const { authenticate } = require("../../../middleware/authMiddleware");
 
 router.get("/banks", paymentController.getBanks);
 router.post("/initiate", paymentController.initiatePayment);
+router.post("/submit-pin", paymentController.submitPin);
 router.post("/validate", paymentController.validateCharge);
 router.get("/verify/:tx_ref", paymentController.verifyPayment);
 router.post("/webhook", paymentController.webhook);

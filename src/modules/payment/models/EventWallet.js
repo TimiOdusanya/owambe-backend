@@ -14,6 +14,6 @@ const eventWalletSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-eventWalletSchema.index({ eventId: 1 });
+// eventId already has unique: true in schema, no need for duplicate index
 
 module.exports = mongoose.model("EventWallet", eventWalletSchema);
