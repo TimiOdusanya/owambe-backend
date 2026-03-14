@@ -22,3 +22,20 @@ exports.listWishlist = async (req, res) => {
     return res.status(400).json({ message: error.message });
   }
 };
+
+/**
+ * GET /api/v1/guest-wishlist/:eventId/:wishlistId
+ * Get a single wishlist item (guest view).
+ */
+exports.getWishlist = async (req, res) => {
+  try {
+    const { eventId, wishlistId } = req.params;
+    const result = await guestWishlistService.getWishlistItemForGuest(eventId, wishlistId);
+    if (!result) {
+      return res.status(404).json({ message: "Wishlist item or event not found" });
+    }
+    return res.status(200).json(result);
+  } catch (error) {
+    return res.status(400).json({ message: error.message });
+  }
+};

@@ -108,15 +108,22 @@ const getBalance = async (eventId) => {
 
 /**
  * List transactions for an event (for admin dashboard).
+ * Optional filter: purpose = "media" | "wishlist" | "gift" (omit for all).
  */
-const getTransactions = async (eventId, { limit = 20, skip = 0 } = {}) => {
+const getTransactions = async (eventId, { limit = 20, skip = 0, purpose } = {}) => {
+  const query = { eventId };
+  const validPurposes = Object.values(paymentPurpose);
+  if (purpose && validPurposes.includes(purpose)) {
+    query.purpose = purpose;
+  }
+
   const [transactions, totalCount] = await Promise.all([
-    WalletTransaction.find({ eventId })
+    WalletTransaction.find(query)
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit)
       .lean(),
-    WalletTransaction.countDocuments({ eventId }),
+    WalletTransaction.countDocuments(query),
   ]);
   const wallet = await getOrCreateWallet(eventId);
   return {

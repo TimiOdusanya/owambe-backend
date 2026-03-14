@@ -65,10 +65,11 @@ const getMediaAccessForGuest = async (eventId, mediaId, { guestId, email } = {})
   let hasAccess = isFree;
   if (!hasAccess && (guestId || email)) {
     const purchasedIds = await paymentService.getPurchasedMediaIds(eventId, {
-      guestId,
-      email,
+      guestId: guestId || null,
+      email: email || null,
     });
-    hasAccess = purchasedIds.includes(mediaId.toString());
+    const mediaIdStr = (media._id != null ? media._id : mediaId).toString();
+    hasAccess = purchasedIds.some((id) => String(id) === mediaIdStr);
   }
 
   return {

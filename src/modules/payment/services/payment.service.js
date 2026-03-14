@@ -520,13 +520,41 @@ const handleWebhook = async (payload) => {
   return { handled: true, purchase };
 };
 
+const emailRegex = (email) =>
+  new RegExp(`^${String(email).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i");
+
 /**
  * Get purchased media ids for a guest (or by email) in an event.
+ * Resolves guest so that guestId and email return the same set (e.g. purchases
+ * made with email-only have guestId null but are found when querying by guestId).
  */
 const getPurchasedMediaIds = async (eventId, { guestId, email } = {}) => {
-  const query = { eventId, status: paymentStatus.COMPLETED, purpose: paymentPurpose.MEDIA };
-  if (guestId) query.guestId = guestId;
-  if (email) query.guestEmail = new RegExp(`^${email.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i");
+  const hasId = guestId && String(guestId).trim() && String(guestId) !== "null" && String(guestId) !== "undefined";
+  const hasEmail = email && String(email).trim() && String(email) !== "null" && String(email) !== "undefined";
+  if (!hasId && !hasEmail) return [];
+
+  const normalizedEmail = hasEmail ? String(email).trim().toLowerCase() : null;
+  let guestDoc = null;
+  if (hasId) {
+    guestDoc = await Guest.findOne({ _id: guestId, eventId }).select("email").lean();
+  } else {
+    guestDoc = await Guest.findOne({
+      eventId,
+      email: emailRegex(normalizedEmail),
+    })
+      .select("_id email")
+      .lean();
+  }
+
+  const resolvedId = (hasId && guestId) || (guestDoc && guestDoc._id);
+  const resolvedEmail = normalizedEmail || (guestDoc && guestDoc.email && String(guestDoc.email).trim());
+
+  const base = { eventId, status: paymentStatus.COMPLETED, purpose: paymentPurpose.MEDIA };
+  const orConditions = [];
+  if (resolvedId) orConditions.push({ guestId: resolvedId });
+  if (resolvedEmail) orConditions.push({ guestEmail: emailRegex(resolvedEmail) });
+  const query = orConditions.length > 0 ? { ...base, $or: orConditions } : base;
+
   const purchases = await MediaPurchase.find(query);
   const ids = new Set();
   purchases.forEach((p) => {

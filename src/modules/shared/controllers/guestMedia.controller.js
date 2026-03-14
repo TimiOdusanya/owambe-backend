@@ -29,13 +29,14 @@ exports.listMedia = async (req, res) => {
 
 /**
  * GET /api/v1/guest-media/:eventId/:mediaId
- * Query: guestId?, email?
+ * Query or headers: guestId?, email? (headers: X-Guest-Id, X-Guest-Email)
  * Get one media. If paid and not purchased, returns metadata without download links (has_access: false).
  */
 exports.getMedia = async (req, res) => {
   try {
     const { eventId, mediaId } = req.params;
-    const { guestId, email } = req.query;
+    const guestId = req.query.guestId ?? req.headers["x-guest-id"] ?? null;
+    const email = req.query.email ?? req.headers["x-guest-email"] ?? null;
 
     const result = await guestMediaService.getMediaAccessForGuest(eventId, mediaId, {
       guestId: guestId || null,

@@ -35,15 +35,17 @@ exports.getWallet = async (req, res) => {
 /**
  * GET /api/v1/payment/wallet/:eventId/transactions
  * List wallet transactions for an event (organizer only).
+ * Query: limit?, skip?, purpose? (media|wishlist|gift – omit for all).
  */
 exports.getTransactions = async (req, res) => {
   try {
     const { eventId } = req.params;
     await ensureOrganizer(eventId, req.user._id);
-    const { limit = 20, skip = 0 } = req.query;
+    const { limit = 20, skip = 0, purpose } = req.query;
     const result = await walletService.getTransactions(eventId, {
       limit: parseInt(limit, 10) || 20,
       skip: parseInt(skip, 10) || 0,
+      purpose: purpose || undefined,
     });
     return res.status(200).json(result);
   } catch (error) {
