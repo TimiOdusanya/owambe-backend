@@ -24,6 +24,23 @@ const listWishlistForGuest = async (eventId, { limit = 50, skip = 0, includePurc
   };
 };
 
+/**
+ * Get a single wishlist item for an event (guest view).
+ */
+const getWishlistItemForGuest = async (eventId, wishlistId) => {
+  const event = await Event.findById(eventId);
+  if (!event) return null;
+
+  const item = await Gift.findOne({
+    _id: wishlistId,
+    eventId,
+    type: "wishlist",
+  }).lean();
+
+  return item || null;
+};
+
 module.exports = {
   listWishlistForGuest,
+  getWishlistItemForGuest,
 };
