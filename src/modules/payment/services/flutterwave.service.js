@@ -133,6 +133,44 @@ const initiateTransfer = async (params) => {
   return response;
 };
 
+/**
+ * Flutterwave Standard: create a payment and get a link to redirect the customer.
+ * Customer pays on Flutterwave's page (card, bank, mobile money, etc.); no card capture on your side.
+ * POST https://api.flutterwave.com/v3/payments
+ * @param {Object} params - { tx_ref, amount, currency?, customer: { email, name?, phonenumber? }, redirect_url, customizations?, meta? }
+ * @returns {Promise<Object>} { status, message, data: { link, ... } }
+ */
+const createPaymentLink = async (params) => {
+  const secretKey = process.env.FLW_SECRET_KEY;
+  if (!secretKey) throw new Error("FLW_SECRET_KEY must be set");
+
+  const payload = {
+    tx_ref: params.tx_ref,
+    amount: Number(params.amount),
+    currency: params.currency || "NGN",
+    redirect_url: params.redirect_url,
+    customer: {
+      email: params.customer.email,
+      name: params.customer.name || "",
+      phonenumber: params.customer.phonenumber || "",
+    },
+    ...(params.customizations && { customizations: params.customizations }),
+    ...(params.meta && Object.keys(params.meta).length > 0 && { meta: params.meta }),
+  };
+
+  const res = await fetch("https://api.flutterwave.com/v3/payments", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${secretKey}`,
+    },
+    body: JSON.stringify(payload),
+  });
+
+  const data = await res.json();
+  return data;
+};
+
 module.exports = {
   chargeCard,
   chargeCardWithAuthorization,
@@ -143,5 +181,6 @@ module.exports = {
   getBanks,
   resolveAccount,
   initiateTransfer,
+  createPaymentLink,
   getEncryptionKey,
 };

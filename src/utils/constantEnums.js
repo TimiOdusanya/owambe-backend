@@ -79,6 +79,7 @@ const paymentPurpose = {
 const paymentMethod = {
   CARD: "card",
   BANK_TRANSFER: "bank_transfer",
+  PAYMENT_LINK: "payment_link", // Flutterwave Standard: user pays on Flutterwave's page
 };
 
 const paymentStatus = {

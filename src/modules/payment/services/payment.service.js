@@ -565,6 +565,96 @@ const getPurchasedMediaIds = async (eventId, { guestId, email } = {}) => {
   return Array.from(ids);
 };
 
+/**
+ * Flutterwave Standard: create a payment link so the guest pays on Flutterwave's UI.
+ * Use for media, wishlist, or gift. No card capture on your side; frontend just redirects to link.
+ * Completion is handled by webhook (charge.completed) or GET /payment/verify/:tx_ref after redirect.
+ */
+const createPaymentLink = async ({
+  eventId,
+  guestId,
+  purpose = paymentPurpose.MEDIA,
+  mediaIds,
+  wishlistId,
+  amount: giftAmount,
+  email,
+  fullname,
+  phone_number,
+  redirect_url,
+}) => {
+  if (!redirect_url || !String(redirect_url).trim()) {
+    throw new Error("redirect_url is required for payment link (where to send the guest after payment)");
+  }
+  await ensureGuestHasClaimedInvite(eventId, { guestId: guestId || null, email });
+
+  let totalAmount;
+  if (purpose === paymentPurpose.WISHLIST) {
+    const result = await validateForWishlist(eventId, guestId, wishlistId);
+    totalAmount = result.totalAmount;
+  } else if (purpose === paymentPurpose.GIFT) {
+    const result = await validateForGift(eventId, giftAmount);
+    totalAmount = result.totalAmount;
+  } else {
+    const result = await validateAndComputeTotal(eventId, guestId, mediaIds || []);
+    totalAmount = result.totalAmount;
+  }
+
+  const txRef = createTxRef();
+  const purchase = new MediaPurchase({
+    eventId,
+    purpose,
+    guestId: guestId || null,
+    guestEmail: email,
+    guestName: fullname,
+    guestPhone: phone_number || null,
+    mediaIds: purpose === paymentPurpose.MEDIA ? mediaIds || [] : [],
+    wishlistId: purpose === paymentPurpose.WISHLIST ? wishlistId : null,
+    totalAmount,
+    currency: "NGN",
+    paymentMethod: paymentMethod.PAYMENT_LINK,
+    txRef,
+    status: paymentStatus.PENDING,
+  });
+  await purchase.save();
+
+  const flwResponse = await flutterwaveService.createPaymentLink({
+    tx_ref: txRef,
+    amount: Math.round(totalAmount),
+    currency: "NGN",
+    redirect_url: redirect_url.trim(),
+    customer: {
+      email,
+      name: fullname,
+      phonenumber: phone_number || "",
+    },
+    meta: {
+      purchase_id: purchase._id.toString(),
+      event_id: eventId,
+      purpose,
+    },
+  });
+
+  if (flwResponse.status === "error") {
+    purchase.status = paymentStatus.FAILED;
+    await purchase.save();
+    throw new Error(flwResponse.message || "Failed to create payment link");
+  }
+
+  const link = flwResponse.data?.link;
+  if (!link) {
+    purchase.status = paymentStatus.FAILED;
+    await purchase.save();
+    throw new Error("No payment link returned from Flutterwave");
+  }
+
+  return {
+    link,
+    tx_ref: txRef,
+    purchase_id: purchase._id,
+    amount: totalAmount,
+  };
+};
+
 module.exports = {
   createTxRef,
   validateAndComputeTotal,
@@ -576,4 +666,5 @@ module.exports = {
   verifyAndCompletePurchase,
   handleWebhook,
   getPurchasedMediaIds,
+  createPaymentLink,
 };
