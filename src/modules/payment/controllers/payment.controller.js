@@ -100,6 +100,71 @@ exports.initiatePayment = async (req, res) => {
 };
 
 /**
+ * POST /api/v1/payment/create-link
+ * Flutterwave Standard: create a payment link; guest pays on Flutterwave's page. No card capture.
+ * Body: eventId, purpose (media|wishlist|gift), guestId?, email, fullname, phone_number?, redirect_url (required).
+ * For media: mediaIds[] required. For wishlist: wishlistId required. For gift: amount required.
+ * Returns: { link, tx_ref, purchase_id, amount }. Frontend redirects user to link.
+ */
+exports.createPaymentLink = async (req, res) => {
+  try {
+    const {
+      eventId,
+      guestId,
+      purpose = "media",
+      mediaIds,
+      wishlistId,
+      amount: giftAmount,
+      email,
+      fullname,
+      phone_number,
+      redirect_url,
+    } = req.body;
+
+    if (!eventId) {
+      return res.status(400).json({ message: "eventId is required" });
+    }
+    if (!["media", "wishlist", "gift"].includes(purpose)) {
+      return res.status(400).json({ message: "purpose must be 'media', 'wishlist', or 'gift'" });
+    }
+    if (purpose === "media" && (!mediaIds || !Array.isArray(mediaIds) || mediaIds.length === 0)) {
+      return res.status(400).json({ message: "mediaIds array is required for media purchase" });
+    }
+    if (purpose === "wishlist" && !wishlistId) {
+      return res.status(400).json({ message: "wishlistId is required for wishlist purchase" });
+    }
+    if (purpose === "gift" && (giftAmount == null || Number(giftAmount) <= 0)) {
+      return res.status(400).json({ message: "amount (positive number) is required for gift" });
+    }
+    if (!email || !fullname) {
+      return res.status(400).json({ message: "email and fullname are required" });
+    }
+    if (!redirect_url || !String(redirect_url).trim()) {
+      return res.status(400).json({ message: "redirect_url is required (where to send the guest after payment)" });
+    }
+
+    const result = await paymentService.createPaymentLink({
+      eventId,
+      guestId: guestId || null,
+      purpose,
+      mediaIds: purpose === "media" ? mediaIds : undefined,
+      wishlistId: purpose === "wishlist" ? wishlistId : undefined,
+      amount: purpose === "gift" ? giftAmount : undefined,
+      email,
+      fullname,
+      phone_number: phone_number || null,
+      redirect_url: redirect_url.trim(),
+    });
+
+    return res.status(200).json(result);
+  } catch (error) {
+    return res
+      .status(400)
+      .json({ message: error.message || "Failed to create payment link" });
+  }
+};
+
+/**
  * POST /api/v1/payment/submit-pin
  * Body: purchase_id, pin (required when initiate returned next_action "pin")
  */
