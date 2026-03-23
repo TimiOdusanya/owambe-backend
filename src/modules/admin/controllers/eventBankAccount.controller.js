@@ -141,16 +141,24 @@ exports.resolveAccountName = async (req, res) => {
       });
     }
 
+    const trimmedBankCode = String(bankCode).replace(/\s/g, "");
     const trimmedAccountNumber = String(accountNumber).replace(/\s/g, "");
     const response = await flutterwaveService.resolveAccount({
-      account_bank: bankCode,
+      account_bank: trimmedBankCode,
       account_number: trimmedAccountNumber,
       country: "NG",
     });
 
     if (response.status === "error" || !response.data) {
+      const rawMsg = response.message || "Could not resolve account details";
+      const isSandboxBankLimit =
+        /only 044|044 is allowed|destbankcode/i.test(rawMsg);
       return res.status(400).json({
-        message: response.message || "Could not resolve account details",
+        message: rawMsg,
+        ...(isSandboxBankLimit && {
+          hint:
+            "Flutterwave sandbox only allows account resolution with bank code 044 (Access Bank) and their test account numbers (e.g. 0690000032). For GTBank (058) and other banks, use live API keys or test resolve in the Flutterwave dashboard.",
+        }),
       });
     }
 

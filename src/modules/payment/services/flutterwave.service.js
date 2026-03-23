@@ -105,8 +105,8 @@ const getBanks = async (country = "NG") => {
 const resolveAccount = async (params) => {
   const flw = getClient();
   const payload = {
-    account_bank: params.account_bank,
-    account_number: params.account_number,
+    account_bank: String(params.account_bank).replace(/\s/g, ""),
+    account_number: String(params.account_number).replace(/\s/g, ""),
     country: params.country || "NG",
   };
   const response = await flw.Misc.verify_Account(payload);
