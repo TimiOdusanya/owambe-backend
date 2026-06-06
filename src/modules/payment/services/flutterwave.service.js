@@ -99,18 +99,30 @@ const getBanks = async (country = "NG") => {
 
 /**
  * Resolve bank account to get account holder name (NGN).
+ * Uses direct fetch to Flutterwave v3 API for reliability.
  * @param {Object} params - { account_bank (bank code), account_number, country? }
- * @returns {Promise<Object>} { account_number, account_name, ... }
+ * @returns {Promise<Object>} { status, message, data: { account_number, account_name } }
  */
 const resolveAccount = async (params) => {
-  const flw = getClient();
+  const secretKey = process.env.FLW_SECRET_KEY;
+  if (!secretKey) throw new Error("FLW_SECRET_KEY must be set");
+
   const payload = {
     account_bank: String(params.account_bank).replace(/\s/g, ""),
     account_number: String(params.account_number).replace(/\s/g, ""),
-    country: params.country || "NG",
   };
-  const response = await flw.Misc.verify_Account(payload);
-  return response;
+
+  const res = await fetch("https://api.flutterwave.com/v3/accounts/resolve", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${secretKey}`,
+    },
+    body: JSON.stringify(payload),
+  });
+
+  const data = await res.json();
+  return data;
 };
 
 /**

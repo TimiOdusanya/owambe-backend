@@ -50,7 +50,16 @@ const initiateWithdrawal = async (
   });
 
   if (response.status === "error" || !response.data) {
-    throw new Error(response.message || "Transfer initiation failed");
+    const raw = response.message || "Transfer initiation failed";
+    const isIpWhitelist = /ip\s*whitelisting|whitelist/i.test(raw);
+    if (isIpWhitelist) {
+      throw new Error(
+        "Flutterwave requires IP whitelisting for transfers. " +
+        "To fix: log into your Flutterwave dashboard → Settings → API → disable 'Require IP Whitelisting' " +
+        "or add your server's IP address to the whitelist. For Render.com deployments, this requires a static IP add-on."
+      );
+    }
+    throw new Error(raw);
   }
 
   const transferId = response.data.id;

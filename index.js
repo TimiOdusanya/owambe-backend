@@ -27,16 +27,25 @@ const allowedOrigins = getAllowedOrigins();
 app.use(
   cors({
     origin: function (origin, callback) {
-      if (!origin || allowedOrigins.includes(origin)) {
+      // Allow requests with no origin (curl, Postman, server-to-server)
+      if (!origin) return callback(null, true);
+      // Normalise: strip trailing slash before comparing
+      const normalised = origin.replace(/\/+$/, "");
+      if (allowedOrigins.includes(normalised)) {
         callback(null, true);
       } else {
-        callback(new Error("Not allowed by CORS"));
+        callback(new Error(`CORS: origin '${origin}' not allowed`));
       }
     },
-    methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
+    methods: "GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS",
+    allowedHeaders: "Content-Type,Authorization,X-Guest-Id,X-Guest-Email",
     credentials: true,
+    optionsSuccessStatus: 204,
   })
 );
+
+// Handle preflight for all routes
+app.options("*", cors());
 
 
 // app.use(cors());

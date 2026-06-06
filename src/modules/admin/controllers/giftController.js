@@ -1,4 +1,6 @@
 const giftService = require("../services/giftService");
+const MediaPurchase = require("../../payment/models/MediaPurchase");
+const { paymentStatus, paymentPurpose } = require("../../../utils/constantEnums");
 
 exports.createWishlist = async (req, res) => {
   try {
@@ -169,6 +171,93 @@ exports.deleteMultipleCashgifts = async (req, res) => {
     const { cashgiftIds } = req.body;
     await giftService.deleteMultipleGifts(eventId, cashgiftIds);
     res.json({ message: "Cashgifts deleted" });
+  } catch (error) {
+    res.status(400).json({ message: error.message });
+  }
+};
+
+/**
+ * GET /api/v1/gifts/:eventId/purchased-wishlist
+ * Returns all wishlist items that have been purchased by guests.
+ * Shows: item name, guest name, purchase date, amount.
+ */
+exports.getPurchasedWishlist = async (req, res) => {
+  try {
+    const { eventId } = req.params;
+    const { limit = 20, skip = 0 } = req.query;
+    const Gift = require("../models/Gift");
+    const [items, totalCount] = await Promise.all([
+      Gift.find({ eventId, type: "wishlist", purchased: true })
+        .sort({ purchasedAt: -1 })
+        .skip(parseInt(skip, 10))
+        .limit(parseInt(limit, 10))
+        .lean(),
+      Gift.countDocuments({ eventId, type: "wishlist", purchased: true }),
+    ]);
+    res.json({
+      items: items.map((g) => ({
+        _id: g._id,
+        item: g.name,
+        price: g.price,
+        description: g.description,
+        guest: g.purchasedBy?.guestName || null,
+        guestEmail: g.purchasedBy?.guestEmail || null,
+        guestId: g.purchasedBy?.guestId || null,
+        date: g.purchasedAt,
+        amount: g.price,
+      })),
+      totalCount,
+      currentPage: Math.floor(parseInt(skip, 10) / parseInt(limit, 10)) + 1,
+      totalPages: Math.ceil(totalCount / parseInt(limit, 10)),
+    });
+  } catch (error) {
+    res.status(400).json({ message: error.message });
+  }
+};
+
+/**
+ * GET /api/v1/gifts/:eventId/cash-gift-payments
+ * Returns all payment-based cash gifts (purpose=gift, status=completed from MediaPurchase).
+ * Shows: amount, date, sender name, reference (tx_ref).
+ */
+exports.getCashGiftPayments = async (req, res) => {
+  try {
+    const { eventId } = req.params;
+    const { limit = 20, skip = 0 } = req.query;
+    const mongoose = require("mongoose");
+    const eventObjectId = new mongoose.Types.ObjectId(eventId);
+
+    const [payments, totalCount] = await Promise.all([
+      MediaPurchase.find({
+        eventId: eventObjectId,
+        purpose: paymentPurpose.GIFT,
+        status: paymentStatus.COMPLETED,
+      })
+        .sort({ createdAt: -1 })
+        .skip(parseInt(skip, 10))
+        .limit(parseInt(limit, 10))
+        .lean(),
+      MediaPurchase.countDocuments({
+        eventId: eventObjectId,
+        purpose: paymentPurpose.GIFT,
+        status: paymentStatus.COMPLETED,
+      }),
+    ]);
+
+    res.json({
+      items: payments.map((p) => ({
+        _id: p._id,
+        amount: p.totalAmount,
+        currency: p.currency,
+        sender: p.guestName,
+        senderEmail: p.guestEmail,
+        reference: p.txRef,
+        date: p.updatedAt,
+      })),
+      totalCount,
+      currentPage: Math.floor(parseInt(skip, 10) / parseInt(limit, 10)) + 1,
+      totalPages: Math.ceil(totalCount / parseInt(limit, 10)),
+    });
   } catch (error) {
     res.status(400).json({ message: error.message });
   }
