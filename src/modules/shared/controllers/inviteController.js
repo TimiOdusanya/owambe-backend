@@ -38,7 +38,8 @@ exports.claimEvent = async (req, res) => {
     const guest = await Guest.findOne({ _id: guestId, eventId });
     if (!guest) return res.status(404).json({ message: "Guest not found" });
 
-    if (guest.email !== email) {
+    // Case-insensitive email comparison
+    if (guest.email.toLowerCase().trim() !== email.toLowerCase().trim()) {
       return res.status(400).json({ message: "Email does not match guest record" });
     }
 
@@ -164,23 +165,21 @@ exports.inviteAllGuests = async (req, res) => {
 
     const results = await Promise.allSettled(
       guests.map(async (guest) => {
-        try {
-          await inviteService.inviteGuest({ event, guest });
-          guest.inviteSent = true;
-          await guest.save();
-          return { guestId: guest._id, status: "fulfilled" };
-        } catch (err) {
-          return { guestId: guest._id, status: "rejected", reason: err.message };
-        }
+        await inviteService.inviteGuest({ event, guest });
+        guest.inviteSent = true;
+        await guest.save();
+        return { guestId: guest._id };
       })
     );
 
     const success = results.filter(r => r.status === "fulfilled").length;
-    const failed = results.filter(r => r.status === "rejected");
+    const failed = results
+      .map((r, i) => (r.status === "rejected" ? { guestId: guests[i]._id, reason: r.reason?.message || String(r.reason) } : null))
+      .filter(Boolean);
 
     res.status(200).json({
       message: `Invited ${success} guests.`,
-      failed: failed.map(f => ({ guestId: f.guestId, reason: f.reason })),
+      failed,
     });
 
   } catch (err) {

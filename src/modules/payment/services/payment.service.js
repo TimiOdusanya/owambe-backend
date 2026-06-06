@@ -151,6 +151,8 @@ const initiatePayment = async ({
   }
 
   const txRef = createTxRef();
+  // Always round to whole naira so stored amount matches what Flutterwave is charged
+  const roundedAmount = Math.round(Number(totalAmount));
   const purchase = new MediaPurchase({
     eventId,
     purpose,
@@ -160,7 +162,7 @@ const initiatePayment = async ({
     guestPhone: phone_number || null,
     mediaIds: purpose === paymentPurpose.MEDIA ? mediaIds || [] : [],
     wishlistId: purpose === paymentPurpose.WISHLIST ? wishlistId : null,
-    totalAmount,
+    totalAmount: roundedAmount,
     currency: "NGN",
     paymentMethod: method,
     txRef,
@@ -174,7 +176,7 @@ const initiatePayment = async ({
       expiry_month: String(expiry_month).padStart(2, "0"),
       expiry_year: String(expiry_year).length === 2 ? String(expiry_year) : String(expiry_year).slice(-2),
       cvv: String(cvv),
-      amount: Math.round(Number(totalAmount)),
+      amount: roundedAmount,
       currency: "NGN",
       email,
       fullname,
@@ -505,7 +507,8 @@ const handleWebhook = async (payload) => {
     return { handled: true, message: "Charge not successful" };
   }
 
-  if (Math.abs(amount - purchase.totalAmount) > 0.01) {
+  // Use a 1-naira tolerance to account for rounding differences
+  if (Math.abs(amount - Math.round(purchase.totalAmount)) > 1) {
     return { handled: true, message: "Amount mismatch" };
   }
 
@@ -600,6 +603,7 @@ const createPaymentLink = async ({
   }
 
   const txRef = createTxRef();
+  const roundedTotalAmount = Math.round(Number(totalAmount));
   const purchase = new MediaPurchase({
     eventId,
     purpose,
@@ -609,7 +613,7 @@ const createPaymentLink = async ({
     guestPhone: phone_number || null,
     mediaIds: purpose === paymentPurpose.MEDIA ? mediaIds || [] : [],
     wishlistId: purpose === paymentPurpose.WISHLIST ? wishlistId : null,
-    totalAmount,
+    totalAmount: roundedTotalAmount,
     currency: "NGN",
     paymentMethod: paymentMethod.PAYMENT_LINK,
     txRef,
@@ -619,7 +623,7 @@ const createPaymentLink = async ({
 
   const flwResponse = await flutterwaveService.createPaymentLink({
     tx_ref: txRef,
-    amount: Math.round(totalAmount),
+    amount: roundedTotalAmount,
     currency: "NGN",
     redirect_url: redirect_url.trim(),
     customer: {
@@ -651,8 +655,65 @@ const createPaymentLink = async ({
     link,
     tx_ref: txRef,
     purchase_id: purchase._id,
-    amount: totalAmount,
+    amount: roundedTotalAmount,
   };
+};
+
+/**
+ * Create a Flutterwave Standard payment link for an organizer to top up their event wallet.
+ * On completion (webhook/verify), the event wallet is credited via creditFromPayment.
+ */
+const createTopupPaymentLink = async ({ eventId, amount, email, fullname, redirect_url }) => {
+  if (!redirect_url) throw new Error("redirect_url is required");
+  const event = await Event.findById(eventId);
+  if (!event) throw new Error("Event not found");
+
+  const roundedAmount = Math.round(Number(amount));
+  if (!roundedAmount || roundedAmount <= 0) throw new Error("Amount must be greater than 0");
+
+  const txRef = createTxRef();
+  // Topup is stored as a media purchase with purpose "gift" (wallet credit)
+  const purchase = new MediaPurchase({
+    eventId,
+    purpose: paymentPurpose.GIFT,
+    guestId: null,
+    guestEmail: email,
+    guestName: fullname,
+    guestPhone: null,
+    mediaIds: [],
+    wishlistId: null,
+    totalAmount: roundedAmount,
+    currency: "NGN",
+    paymentMethod: paymentMethod.PAYMENT_LINK,
+    txRef,
+    status: paymentStatus.PENDING,
+    meta: { topup: true },
+  });
+  await purchase.save();
+
+  const flwResponse = await flutterwaveService.createPaymentLink({
+    tx_ref: txRef,
+    amount: roundedAmount,
+    currency: "NGN",
+    redirect_url: redirect_url.trim(),
+    customer: { email, name: fullname },
+    meta: { purchase_id: purchase._id.toString(), event_id: eventId, topup: true },
+  });
+
+  if (flwResponse.status === "error") {
+    purchase.status = paymentStatus.FAILED;
+    await purchase.save();
+    throw new Error(flwResponse.message || "Failed to create top-up payment link");
+  }
+
+  const link = flwResponse.data?.link;
+  if (!link) {
+    purchase.status = paymentStatus.FAILED;
+    await purchase.save();
+    throw new Error("No payment link returned from Flutterwave");
+  }
+
+  return { link, tx_ref: txRef, purchase_id: purchase._id, amount: roundedAmount };
 };
 
 module.exports = {
@@ -667,4 +728,5 @@ module.exports = {
   handleWebhook,
   getPurchasedMediaIds,
   createPaymentLink,
+  createTopupPaymentLink,
 };

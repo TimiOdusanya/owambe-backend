@@ -1,6 +1,7 @@
 const Event = require("../../admin/models/Event");
 const walletService = require("../services/wallet.service");
 const withdrawService = require("../services/withdraw.service");
+const paymentService = require("../services/payment.service");
 
 /**
  * Ensure the authenticated user is the organizer of the event.
@@ -52,6 +53,54 @@ exports.getTransactions = async (req, res) => {
     return res
       .status(400)
       .json({ message: error.message || "Failed to get transactions" });
+  }
+};
+
+/**
+ * GET /api/v1/payment/wallet/summary
+ * Get total wallet balance across all events for the logged-in organizer.
+ */
+exports.getWalletSummary = async (req, res) => {
+  try {
+    const result = await walletService.getOrganizerWalletSummary(req.user._id);
+    return res.status(200).json(result);
+  } catch (error) {
+    return res.status(400).json({ message: error.message || "Failed to get wallet summary" });
+  }
+};
+
+/**
+ * POST /api/v1/payment/wallet/:eventId/topup
+ * Creates a Flutterwave Standard payment link for the organizer to top up their event wallet.
+ * Body: { amount, redirect_url }
+ */
+exports.topupWallet = async (req, res) => {
+  try {
+    const { eventId } = req.params;
+    await ensureOrganizer(eventId, req.user._id);
+
+    const amount = parseFloat(req.body.amount);
+    if (!amount || amount <= 0) {
+      return res.status(400).json({ message: "Valid amount is required" });
+    }
+    if (!req.body.redirect_url) {
+      return res.status(400).json({ message: "redirect_url is required" });
+    }
+
+    const event = await Event.findById(eventId).select("title organizerId").lean();
+    const organizer = req.user;
+
+    const result = await paymentService.createTopupPaymentLink({
+      eventId,
+      amount,
+      email: organizer.email,
+      fullname: `${organizer.firstName || ""} ${organizer.surname || organizer.lastName || ""}`.trim() || "Organizer",
+      redirect_url: req.body.redirect_url,
+    });
+
+    return res.status(200).json(result);
+  } catch (error) {
+    return res.status(400).json({ message: error.message || "Wallet top-up failed" });
   }
 };
 

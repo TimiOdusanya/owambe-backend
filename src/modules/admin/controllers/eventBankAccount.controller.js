@@ -151,18 +151,22 @@ exports.resolveAccountName = async (req, res) => {
 
     if (response.status === "error" || !response.data) {
       const rawMsg = response.message || "Could not resolve account details";
-      const isSandboxBankLimit =
-        /only 044|044 is allowed|destbankcode/i.test(rawMsg);
+      const isSandboxBankLimit = /only 044|044 is allowed|destbankcode/i.test(rawMsg);
+      const isInvalidAccount = /couldn.t validate|invalid account|account.not.found|account number/i.test(rawMsg);
       return res.status(400).json({
-        message: rawMsg,
+        message: isInvalidAccount
+          ? "Could not validate account number. Please check the account number and bank code and try again."
+          : rawMsg,
         ...(isSandboxBankLimit && {
-          hint:
-            "Flutterwave sandbox only allows account resolution with bank code 044 (Access Bank) and their test account numbers (e.g. 0690000032). For GTBank (058) and other banks, use live API keys or test resolve in the Flutterwave dashboard.",
+          hint: "Flutterwave sandbox only allows account resolution with bank code 044 (Access Bank) and their test account numbers (e.g. 0690000032). Switch to live API keys for full bank support.",
         }),
       });
     }
 
-    const accountName = response.data.account_name || null;
+    const accountName = response.data?.account_name || null;
+    if (!accountName) {
+      return res.status(400).json({ message: "Account name could not be retrieved. Verify the account number and bank code." });
+    }
     return res.status(200).json({
       accountNumber: trimmedAccountNumber,
       accountName,
