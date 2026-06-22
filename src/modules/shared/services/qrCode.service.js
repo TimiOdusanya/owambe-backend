@@ -4,7 +4,7 @@ const Food = require("../../admin/models/Food");
 const Drink = require("../../admin/models/Drink");
 const QRCode = require('qrcode');
 const { v4: uuidv4 } = require('uuid');
-const { getFrontendUrl } = require("../../../utils/urlConfig");
+const { getFrontendUrl, isBrokenFrontendUrl } = require("../../../utils/urlConfig");
 
 exports.generateGuestQRCode = async (eventId, guestId) => {
   const guest = await Guest.findOne({ _id: guestId, eventId });
@@ -16,7 +16,7 @@ exports.generateGuestQRCode = async (eventId, guestId) => {
     await guest.save();
   }
 
-  const qrCodeUrl = `${getFrontendUrl()}/scanner-app/guest-list?eventid=${eventId}/&qrcodeid=${guest.qrCodeId}`;
+  const qrCodeUrl = `${getFrontendUrl()}/scanner-app/guest-list?eventid=${eventId}&qrcodeid=${guest.qrCodeId}`;
   
   // Generate QR code image
   const qrCodeImage = await QRCode.toDataURL(qrCodeUrl);
@@ -126,16 +126,20 @@ exports.generateEventQRCode = async (eventId) => {
   const event = await Event.findById(eventId);
   if (!event) throw new Error("Event not found");
 
+  const qrCodeUrl = `${getFrontendUrl()}/${eventId}`;
+  const needsNewOrRefresh =
+    !event.qrCode?.qrCodeId ||
+    isBrokenFrontendUrl(event.qrCode?.qrCodeUrl) ||
+    event.qrCode.qrCodeUrl !== qrCodeUrl;
 
-  if (!event.qrCode?.qrCodeId) {
-    const qrCodeId = uuidv4();
-    const qrCodeUrl = `${getFrontendUrl()}/${eventId}`;
+  if (needsNewOrRefresh) {
+    const qrCodeId = event.qrCode?.qrCodeId || uuidv4();
     const qrCodeImage = await QRCode.toDataURL(qrCodeUrl);
 
     event.qrCode = {
       qrCodeId,
       qrCodeUrl,
-      qrCodeImage
+      qrCodeImage,
     };
 
     await event.save();
