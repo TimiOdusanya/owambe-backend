@@ -4,8 +4,8 @@ const paymentService = require("../../payment/services/payment.service");
 
 /**
  * List media for an event (guest-facing). No auth.
- * If guestId or email is provided, include purchased flag per media.
- * For paid media, do not expose download links unless purchased or price is 0.
+ * Always returns media file metadata/links so the gallery can render previews.
+ * Use purchased / has_access to gate full view or download (single-item endpoint).
  */
 const listMediaForGuest = async (eventId, { limit = 50, skip = 0, guestId, email } = {}) => {
   const event = await Event.findById(eventId);
@@ -27,8 +27,9 @@ const listMediaForGuest = async (eventId, { limit = 50, skip = 0, guestId, email
   const list = media.map((m) => {
     const idStr = m._id.toString();
     const isFree = (m.price || 0) <= 0;
-    const purchased = purchasedIds.includes(idStr);
+    const purchased = purchasedIds.some((id) => String(id) === idStr);
     const hasAccess = isFree || purchased;
+    const files = Array.isArray(m.media) ? m.media : [];
     return {
       _id: m._id,
       title: m.title,
@@ -37,8 +38,8 @@ const listMediaForGuest = async (eventId, { limit = 50, skip = 0, guestId, email
       price: m.price,
       purchased,
       has_access: hasAccess,
-      media: hasAccess ? m.media : [],
-      media_count: (m.media || []).length,
+      media: files,
+      media_count: files.length,
     };
   });
 

@@ -74,6 +74,7 @@ const paymentPurpose = {
   MEDIA: "media",
   WISHLIST: "wishlist",
   GIFT: "gift",
+  TOPUP: "topup", // Organizer self-funding event wallet (not a guest gift)
 };
 
 const paymentMethod = {

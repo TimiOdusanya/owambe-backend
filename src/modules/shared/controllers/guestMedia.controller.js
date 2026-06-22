@@ -9,12 +9,14 @@ exports.listMedia = async (req, res) => {
   try {
     const { eventId } = req.params;
     const { limit = 10, skip = 0, guestId, email } = req.query;
+    const resolvedGuestId = guestId ?? req.headers["x-guest-id"] ?? null;
+    const resolvedEmail = email ?? req.headers["x-guest-email"] ?? null;
 
     const result = await guestMediaService.listMediaForGuest(eventId, {
       limit: parseInt(limit, 10) || 10,
       skip: parseInt(skip, 10) || 0,
-      guestId: guestId || null,
-      email: email || null,
+      guestId: resolvedGuestId || null,
+      email: resolvedEmail || null,
     });
 
     if (!result) {
