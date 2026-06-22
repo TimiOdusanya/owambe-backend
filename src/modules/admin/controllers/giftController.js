@@ -232,6 +232,7 @@ exports.getCashGiftPayments = async (req, res) => {
         eventId: eventObjectId,
         purpose: paymentPurpose.GIFT,
         status: paymentStatus.COMPLETED,
+        "meta.topup": { $ne: true },
       })
         .sort({ createdAt: -1 })
         .skip(parseInt(skip, 10))
@@ -241,6 +242,7 @@ exports.getCashGiftPayments = async (req, res) => {
         eventId: eventObjectId,
         purpose: paymentPurpose.GIFT,
         status: paymentStatus.COMPLETED,
+        "meta.topup": { $ne: true },
       }),
     ]);
 

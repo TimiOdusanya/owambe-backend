@@ -672,10 +672,9 @@ const createTopupPaymentLink = async ({ eventId, amount, email, fullname, redire
   if (!roundedAmount || roundedAmount <= 0) throw new Error("Amount must be greater than 0");
 
   const txRef = createTxRef();
-  // Topup is stored as a media purchase with purpose "gift" (wallet credit)
   const purchase = new MediaPurchase({
     eventId,
-    purpose: paymentPurpose.GIFT,
+    purpose: paymentPurpose.TOPUP,
     guestId: null,
     guestEmail: email,
     guestName: fullname,

@@ -36,7 +36,7 @@ exports.getWallet = async (req, res) => {
 /**
  * GET /api/v1/payment/wallet/:eventId/transactions
  * List wallet transactions for an event (organizer only).
- * Query: limit?, skip?, purpose? (media|wishlist|gift – omit for all).
+ * Query: limit?, skip?, purpose? (media|wishlist|gift|topup – omit for all).
  */
 exports.getTransactions = async (req, res) => {
   try {

@@ -7,6 +7,7 @@ const purposeDescription = {
   [paymentPurpose.MEDIA]: "Media purchase",
   [paymentPurpose.WISHLIST]: "Wishlist purchase",
   [paymentPurpose.GIFT]: "Gift",
+  [paymentPurpose.TOPUP]: "Wallet top-up",
 };
 
 /**
@@ -108,7 +109,7 @@ const getBalance = async (eventId) => {
 
 /**
  * List transactions for an event (for admin dashboard).
- * Optional filter: purpose = "media" | "wishlist" | "gift" (omit for all).
+ * Optional filter: purpose = "media" | "wishlist" | "gift" | "topup" (omit for all).
  */
 const getTransactions = async (eventId, { limit = 20, skip = 0, purpose } = {}) => {
   const query = { eventId };
