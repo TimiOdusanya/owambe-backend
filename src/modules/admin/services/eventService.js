@@ -1,5 +1,7 @@
 const generateEventCode = require("../../../utils/generateCode");
 const Event = require("../models/Event");
+const qrCodeService = require("../../shared/services/qrCode.service");
+const { isBrokenFrontendUrl } = require("../../../utils/urlConfig");
 
 exports.createEvent = async (eventData) => {
   const eventCode = generateEventCode();
@@ -10,7 +12,8 @@ exports.createEvent = async (eventData) => {
   });
 
   await event.save();
-  return event;
+  await qrCodeService.generateEventQRCode(event._id);
+  return Event.findById(event._id);
 };
 
 exports.createMultipleEvents = async (eventsData) => {
@@ -24,18 +27,29 @@ exports.createMultipleEvents = async (eventsData) => {
 };
 
 exports.getEventById = async (eventId) => {
-  return await Event.findById(eventId);
+  const event = await Event.findById(eventId);
+  if (!event) return null;
+  if (!event.qrCode?.qrCodeUrl || isBrokenFrontendUrl(event.qrCode.qrCodeUrl)) {
+    event.qrCode = await qrCodeService.generateEventQRCode(eventId);
+  }
+  return event;
 };
 
 exports.getAllEvents = async (userId, limit, skip) => {
-
   const [events, totalCount] = await Promise.all([
-      Event.find({ organizerId: userId }).skip(skip).limit(limit),
-      Event.countDocuments({ organizerId: userId })
-      .sort( {createdAt: -1}),
-    ]);
-  
-    return { events, totalCount };
+    Event.find({ organizerId: userId }).skip(skip).limit(limit).sort({ createdAt: -1 }),
+    Event.countDocuments({ organizerId: userId }),
+  ]);
+
+  await Promise.all(
+    events.map(async (event) => {
+      if (!event.qrCode?.qrCodeUrl || isBrokenFrontendUrl(event.qrCode.qrCodeUrl)) {
+        event.qrCode = await qrCodeService.generateEventQRCode(event._id);
+      }
+    })
+  );
+
+  return { events, totalCount };
 };
 
 
