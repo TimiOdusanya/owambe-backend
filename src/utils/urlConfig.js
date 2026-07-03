@@ -1,16 +1,16 @@
 /**
  * URL configuration for guest site, organizer dashboard, and backend.
  *
- * Guest (invites, event QR):  FRONTEND_URL_*  → https://owambe-website.vercel.app
- * Organizer dashboard:         DASHBOARD_URL_*   → https://owambe-dashboard.vercel.app
+ * Guest (invites, event QR):  FRONTEND_URL_*  → https://app.owambe.tech
+ * Organizer dashboard:         DASHBOARD_URL_*   → https://owambe.tech
  *
- * Localhost defaults apply ONLY when running on a developer machine (not Render).
+ * Localhost defaults apply ONLY when running on a developer machine (not hosted).
  */
 
 const isProduction = process.env.NODE_ENV === "production";
 
-const GUEST_SITE_URL = "https://owambe-website.vercel.app";
-const DASHBOARD_SITE_URL = "https://owambe-dashboard.vercel.app";
+const GUEST_SITE_URL = "https://app.owambe.tech";
+const DASHBOARD_SITE_URL = "https://owambe.tech";
 const LOCAL_GUEST_URL = "http://localhost:5174";
 const LOCAL_DASHBOARD_URL = "http://localhost:5173";
 
@@ -27,14 +27,14 @@ const pickEnvUrl = (...candidates) => {
   return null;
 };
 
-/** True when the process runs on Render or another remote host (not a dev laptop). */
+/** True when the process runs on a remote host (Easypanel, Render, etc.), not a dev laptop. */
 const isHostedRuntime = () =>
   Boolean(
     process.env.RENDER === "true" ||
       process.env.RENDER ||
-      /onrender\.com/i.test(process.env.BACKEND_URL || "") ||
-      /onrender\.com/i.test(process.env.BACKEND_URL_DEV || "") ||
-      /onrender\.com/i.test(process.env.BACKEND_URL_PROD || "")
+      /onrender\.com|easypanel\.host/i.test(process.env.BACKEND_URL || "") ||
+      /onrender\.com|easypanel\.host/i.test(process.env.BACKEND_URL_DEV || "") ||
+      /onrender\.com|easypanel\.host/i.test(process.env.BACKEND_URL_PROD || "")
   );
 
 const isLocalRuntime = () => !isHostedRuntime();
