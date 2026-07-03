@@ -27,6 +27,11 @@ const eventSchema = new mongoose.Schema(
       ref: "User",
       required: true,
     },
+    eventCode: {
+      type: String,
+      unique: true,
+      required: true,
+    },    
     tables: [
       {
         type: {
@@ -44,7 +49,23 @@ const eventSchema = new mongoose.Schema(
         seats: Number,
       },
     ],
-    qrCode: String,
+    qrCode: {
+      qrCodeId: {
+        type: String,
+      },
+      qrCodeUrl: {
+        type: String,
+      },
+      qrCodeImage: {
+        type: String,
+      },
+    },
+    // Payout bank account (admin receives payments for this event here; required for withdrawals)
+    payoutBankCode: { type: String, default: null },
+    payoutBankName: { type: String, default: null },
+    payoutAccountNumber: { type: String, default: null },
+    payoutAccountName: { type: String, default: null },
+    payoutAccountType: { type: String, default: null },
   },
   { timestamps: true }
 );

@@ -64,6 +64,36 @@ const mediaType = {
   Video: "video",
 };
 
+const transactionType = {
+  PAYMENT_IN: "payment_in",
+  TRANSFER_OUT: "transfer_out",
+  ADJUSTMENT: "adjustment",
+};
+
+const paymentPurpose = {
+  MEDIA: "media",
+  WISHLIST: "wishlist",
+  GIFT: "gift",
+  TOPUP: "topup", // Organizer self-funding event wallet (not a guest gift)
+};
+
+const paymentMethod = {
+  CARD: "card",
+  BANK_TRANSFER: "bank_transfer",
+  PAYMENT_LINK: "payment_link", // Flutterwave Standard: user pays on Flutterwave's page
+};
+
+const paymentStatus = {
+  PENDING: "pending",
+  COMPLETED: "completed",
+  FAILED: "failed",
+};
+
+const giftType = {
+  WISHLIST: "wishlist",
+  CASHGIFT: "cashgift",
+};
+
 module.exports = {
   userGender,
   eventStatus,
@@ -74,5 +104,10 @@ module.exports = {
   guestRole,
   orderStatus,
   menuType,
-  mediaType
+  mediaType,
+  transactionType,
+  paymentPurpose,
+  paymentMethod,
+  paymentStatus,
+  giftType,
 };

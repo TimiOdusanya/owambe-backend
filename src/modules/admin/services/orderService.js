@@ -2,6 +2,7 @@ const Order = require("../models/Order");
 const Event = require("../models/Event");
 const Food = require("../models/Food");
 const Drink = require("../models/Drink");
+const Guest = require("../models/Guest");
 const { orderStatus } = require("../../../utils/constantEnums");
 
 exports.createOrder = async (orderData) => {
@@ -28,24 +29,63 @@ exports.getOrderById = async (eventId, orderId) => {
 };
 
 exports.getAllOrders = async (eventId, limit = 10, skip = 0) => {
-
   const [orders, totalCount] = await Promise.all([
-    Order.find({ eventId }).skip(skip).limit(limit),
+    Order.find({ eventId })
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .lean(),
     Order.countDocuments({ eventId })
-      .sort( {createdAt: -1}),
-    ]);
+  ]);
 
-  // Populate items for each order
-  for (const order of orders) {
-    for (const item of order.items) {
+  // Populate items and guest information for each order
+  const populatedOrders = await Promise.all(orders.map(async (order) => {
+    // Get guest information
+    const guest = await Guest.findById(order.guestId).lean();
+    
+    // Process items to remove duplicate _id and add food/drink details
+    const populatedItems = await Promise.all(order.items.map(async (item) => {
+      const { _id, ...itemWithoutId } = item; // Remove the subdocument _id
+      
       if (item.type === "food") {
-        item.item = await Food.findById(item.id);
+        const food = await Food.findById(item.id).lean();
+        if (food) {
+          itemWithoutId.name = food.name;
+          itemWithoutId.description = food.description;
+          itemWithoutId.category = food.category;
+          itemWithoutId.media = food.media;
+        }
       } else if (item.type === "drink") {
-        item.item = await Drink.findById(item.id);
+        const drink = await Drink.findById(item.id).lean();
+        if (drink) {
+          itemWithoutId.name = drink.name;
+          itemWithoutId.description = drink.description;
+          itemWithoutId.category = drink.category;
+          itemWithoutId.media = drink.media;
+        }
       }
-    }
-  }
-  return { orders, totalCount };
+      
+      return itemWithoutId;
+    }));
+
+    return {
+      ...order,
+      items: populatedItems,
+      guestName: guest?.name,
+      tableNumber: guest?.tableNumber,
+      seatNumber: guest?.seatNumber,
+      role: guest.role,
+      orderDate: order.createdAt,
+      orderTime: order.createdAt,
+    };
+  }));
+
+  return { 
+    orders: populatedOrders, 
+    totalCount,
+    currentPage: Math.floor(skip / limit) + 1,
+    totalPages: Math.ceil(totalCount / limit)
+  };
 };
 
 exports.updateOrder = async (eventId, orderId, updateData) => {

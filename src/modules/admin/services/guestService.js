@@ -15,16 +15,34 @@ exports.getGuestById = async (eventId, guestId) => {
   return await Guest.findOne({ _id: guestId, eventId });
 };
 
-exports.getAllGuests = async (eventId, limit = 10, skip = 0) => {
-   const [guests, totalCount] = await Promise.all([
-    Guest.find({ eventId }).skip(skip).limit(limit),
-    Guest.countDocuments({ eventId })
-      .sort( {createdAt: -1}),
-    ]);
+// exports.getAllGuests = async (eventId, limit = 10, skip = 0) => {
+//    const [guests, totalCount] = await Promise.all([
+//     Guest.find({ eventId }).skip(skip).limit(limit),
+//     Guest.countDocuments({ eventId })
+//       .sort( {createdAt: -1}),
+//     ]);
   
-    return { guests, totalCount };
+//     return { guests, totalCount };
 
+// };
+
+exports.getAllGuests = async (eventId, status = 'all', limit = 10, skip = 0) => {
+  const query = { eventId };
+
+  if (status === 'confirmed') {
+    query.isConfirmed = true;
+  } else if (status === 'unconfirmed') {
+    query.isConfirmed = false;
+  }
+
+  const [guests, totalCount] = await Promise.all([
+    Guest.find(query).sort({ createdAt: -1 }).skip(skip).limit(limit),
+    Guest.countDocuments(query),
+  ]);
+
+  return { guests, totalCount };
 };
+
 
 exports.updateGuest = async (eventId, guestId, updateData) => {
   return await Guest.findOneAndUpdate({ _id: guestId, eventId }, updateData, {

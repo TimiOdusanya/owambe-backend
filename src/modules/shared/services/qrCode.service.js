@@ -1,0 +1,155 @@
+const Guest = require("../../admin/models/Guest");
+const Event = require("../../admin/models/Event");
+const Food = require("../../admin/models/Food");
+const Drink = require("../../admin/models/Drink");
+const QRCode = require('qrcode');
+const { v4: uuidv4 } = require('uuid');
+const { getFrontendUrl, isBrokenFrontendUrl } = require("../../../utils/urlConfig");
+
+exports.generateGuestQRCode = async (eventId, guestId) => {
+  const guest = await Guest.findOne({ _id: guestId, eventId });
+  if (!guest) throw new Error("Guest not found for this event");
+
+  // Generate a unique QR code ID if not exists
+  if (!guest.qrCodeId) {
+    guest.qrCodeId = uuidv4();
+    await guest.save();
+  }
+
+  const qrCodeUrl = `${getFrontendUrl()}/scanner-app/guest-list?eventid=${eventId}&qrcodeid=${guest.qrCodeId}`;
+  
+  // Generate QR code image
+  const qrCodeImage = await QRCode.toDataURL(qrCodeUrl);
+  
+  return {
+    qrCodeId: guest.qrCodeId,
+    qrCodeUrl,
+    qrCodeImage
+  };
+};
+
+exports.validateQRCode = async (eventId, qrCodeId) => {
+  const guest = await Guest.findOne({ eventId, qrCodeId });
+  if (!guest) throw new Error("Invalid QR code");
+
+  if (!guest.inviteSent) {
+    throw new Error("Invite not sent to this guest");
+  }
+
+  if (!guest.claimedInvite) {
+    throw new Error("Invite not claimed by this guest");
+  }
+
+
+  if (guest.isConfirmed) {
+    throw new Error("Guest has already been checked in");
+  }
+
+  guest.isConfirmed = true;
+  await guest.save();
+
+  return {
+    isValid: true,
+    guestId: guest._id,
+    guestName: guest.name,
+    guestEmail: guest.email,
+    guestPhone: guest.phone,
+    guestAddress: guest.address,
+    guestTableNumber: guest.tableNumber,
+    guestSeatNumber: guest.seatNumber,
+    guestRole: guest.role,
+    guestPlusOnes: guest.plusOnes,
+    guestInviteSent: guest.inviteSent,
+    guestInviteClaimed: guest.claimedInvite,
+    isConfirmed: guest.isConfirmed
+  };
+};
+
+exports.getEventDetailsForQR = async (eventId, qrCodeId) => {
+  const guest = await Guest.findOne({ eventId, qrCodeId });
+  if (!guest) throw new Error("Invalid QR code");
+
+  if (!guest.inviteSent) {
+    throw new Error("Invite not sent to this guest");
+  }
+
+  if (!guest.claimedInvite) {
+    throw new Error("Invite not claimed by this guest");
+  }
+
+  const event = await Event.findById(eventId);
+  if (!event) throw new Error("Event not found");
+
+  // Fetch food and drinks for the event
+  const food = await Food.find({ eventId });
+  const drinks = await Drink.find({ eventId });
+
+  return {
+    event: {
+      title: event.title,
+      venue: event.venue,
+      startDateTime: event.startDateTime,
+      endDateTime: event.endDateTime,
+      timeZone: event.timeZone,
+      description: event.description,
+      tables: event.tables,
+      qrCode: event.qrCode,
+      menu: {
+        food: food.map(item => ({
+          id: item._id,
+          name: item.name,
+          category: item.category,
+          description: item.description,
+          media: item.media
+        })),
+        drinks: drinks.map(item => ({
+          id: item._id,
+          name: item.name,
+          category: item.category,
+          description: item.description,
+          media: item.media
+        }))
+      }
+    },
+    guest: {
+      name: guest.name,
+      email: guest.email,
+      tableNumber: guest.tableNumber,
+      seatNumber: guest.seatNumber
+    }
+  };
+}; 
+
+
+
+exports.generateEventQRCode = async (eventId) => {
+  const event = await Event.findById(eventId);
+  if (!event) throw new Error("Event not found");
+
+  const qrCodeUrl = `${getFrontendUrl()}/${eventId}`;
+  const needsNewOrRefresh =
+    !event.qrCode?.qrCodeId ||
+    isBrokenFrontendUrl(event.qrCode?.qrCodeUrl) ||
+    event.qrCode.qrCodeUrl !== qrCodeUrl;
+
+  if (needsNewOrRefresh) {
+    const qrCodeId = event.qrCode?.qrCodeId || uuidv4();
+    const qrCodeImage = await QRCode.toDataURL(qrCodeUrl);
+
+    event.qrCode = {
+      qrCodeId,
+      qrCodeUrl,
+      qrCodeImage,
+    };
+
+    await event.save();
+  }
+
+  return event.qrCode;
+};
+
+
+exports.findGuestByEmail = async (eventId, email) => {
+  return await Guest.findOne({ eventId, email: email.toLowerCase().trim() });
+};
+

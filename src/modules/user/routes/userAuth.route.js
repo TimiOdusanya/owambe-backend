@@ -13,6 +13,7 @@ const {
   getUserProfile,
   verifyForgotPassword,
   updateProfile,
+  loginWithEventCode
 } = require("../controllers/userAuth.controller");
 const { authenticate, check2FA } = require("../../../middleware/authMiddleware");
 
@@ -29,6 +30,7 @@ router.post("/verify-forgot-password", verifyForgotPassword);
 router.post("/resend-verification", resendVerificationOTP);
 router.post("/verify-2fa", verify2FALogin);
 router.post("/logout", logout);
+router.post("/login-event", loginWithEventCode);
 
 
 // Protected routes

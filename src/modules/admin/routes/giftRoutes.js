@@ -4,11 +4,14 @@ const giftController = require('../controllers/giftController');
 const { authenticate } = require("../../../middleware/authMiddleware");
 
 router.post('/:eventId/wishlist', authenticate, giftController.createWishlist);
+router.post('/:eventId/wishlist/bulk', authenticate, giftController.createMultipleWishlists);
 router.post('/:eventId/cashgifts', authenticate, giftController.createCashgift);
 router.get('/:eventId/wishlist/:wishlistId', authenticate, giftController.getWishlist);
 router.get('/:eventId/cashgifts/:cashgiftId', authenticate, giftController.getCashgift);
 router.get('/:eventId/wishlist', authenticate, giftController.getAllWishlist);
+router.get('/:eventId/purchased-wishlist', authenticate, giftController.getPurchasedWishlist);
 router.get('/:eventId/cashgifts', authenticate, giftController.getAllCashgifts);
+router.get('/:eventId/cash-gift-payments', authenticate, giftController.getCashGiftPayments);
 router.put('/:eventId/wishlist/:wishlistId', authenticate, giftController.updateWishlist);
 router.put('/:eventId/cashgifts/:cashgiftId', authenticate, giftController.updateCashgift);
 router.delete('/:eventId/wishlist/:wishlistId', authenticate, giftController.deleteWishlist);

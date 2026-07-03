@@ -2,6 +2,7 @@ const express = require("express");
 const helmet = require("helmet");
 const cors = require("cors");
 const cookieParser = require("cookie-parser");
+const path = require("path");
 const dotenv = require("dotenv");
 const db = require("./src/db/db");
 const logger = require("./src/lib/log/winston.log");
@@ -10,41 +11,58 @@ const httpLogger = require("./src/lib/log/morgan.log");
 
 //routes
 const authRoutes = require("./src/modules/user/routes/userAuth.route");
-const routes = require('./src/modules/admin/routes');
-const sharedRoutes = require('./src/modules/shared/routes');
+const routes = require("./src/modules/admin/routes");
+const sharedRoutes = require("./src/modules/shared/routes");
+const paymentRoutes = require("./src/modules/payment/routes/payment.routes");
 
 
 // Load environment variables first
 dotenv.config();
 
+const { getAllowedOrigins } = require("./src/utils/urlConfig");
+
 const app = express();
-const allowedOrigins = [
-  "http://localhost:3000",
-  "http://localhost:5173",
-  "https://owambe-dashboard.vercel.app",
-];
+const allowedOrigins = getAllowedOrigins();
 
 app.use(
   cors({
     origin: function (origin, callback) {
-      if (!origin || allowedOrigins.includes(origin)) {
+      // Allow requests with no origin (curl, Postman, server-to-server)
+      if (!origin) return callback(null, true);
+      // Normalise: strip trailing slash before comparing
+      const normalised = origin.replace(/\/+$/, "");
+      if (allowedOrigins.includes(normalised)) {
         callback(null, true);
       } else {
-        callback(new Error("Not allowed by CORS"));
+        callback(new Error(`CORS: origin '${origin}' not allowed`));
       }
     },
-    methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
+    methods: "GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS",
+    allowedHeaders: "Content-Type,Authorization,X-Guest-Id,X-Guest-Email",
     credentials: true,
+    optionsSuccessStatus: 204,
   })
 );
+
+// Handle preflight for all routes
+app.options("*", cors());
 
 
 // app.use(cors());
 app.use(httpLogger);
 app.use(helmet());
-app.use(cookieParser()); // Fix applied
-app.use(express.json());
+app.use(cookieParser());
+// Capture raw body for webhook signature verification (Flutterwave uses HMAC of raw body)
+app.use(
+  express.json({
+    verify: (req, _res, buf) => {
+      req.rawBody = buf;
+    },
+  })
+);
 app.use(express.urlencoded({ extended: true }));
+
+app.use("/assets", express.static(path.join(__dirname, "public/assets")));
 
 app.get("/", (req, res) => {
   res.json({ message: "Hello from server" });
@@ -56,6 +74,7 @@ console.log("Starting server...");
 app.use("/api/v1/auth", authRoutes);
 app.use("/api/v1", routes);
 app.use("/api/v1", sharedRoutes);
+app.use("/api/v1/payment", paymentRoutes);
 
 
 const port = process.env.PORT || 8081;

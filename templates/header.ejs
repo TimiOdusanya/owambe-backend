@@ -1,3 +1,11 @@
 <div class="header">
-  <img src="https://ibb.co/W7xDcg2" alt="Owambe ERP Logo">
+  <% if (LOGO_URL) { %>
+  <img 
+    src="<%= LOGO_URL %>" 
+    alt="Owambe ERP Logo"
+    width="180"
+    height="auto"
+    style="display:block; margin:0 auto; max-width:150px; height:auto;"
+  />
+  <% } %>
 </div>

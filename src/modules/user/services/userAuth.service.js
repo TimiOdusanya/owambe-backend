@@ -2,6 +2,8 @@ const User = require("../models/UserProfile.model");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const { generateOTP, sendEmail, generate2FASecret, verify2FACode } = require("../../../utils/otpUtils");
+const { getDashboardUrl } = require("../../../utils/urlConfig");
+const Event = require("../../admin/models/Event");
 
 
 exports.signup = async (userData) => {
@@ -25,7 +27,7 @@ exports.signup = async (userData) => {
     subject: "Welcome to Owambe ERP",
     body: "Thank you for signing up! We're excited to have you on board.",
     buttonText: "Get Started",
-    buttonLink: "https://owambe-dashboard.vercel.app",
+    buttonLink: getDashboardUrl(),
   });
 
   // Send OTP via email
@@ -250,4 +252,19 @@ exports.updateProfile = async (userId, updateData) => {
     new: true,
     runValidators: true,
   });
+};
+
+
+exports.loginWithEventCode = async (eventCode) => {
+  const event = await Event.findOne({ eventCode });
+
+  if (!event) {
+    throw new Error("Invalid event code");
+  }
+
+  const token = jwt.sign({ eventId: event._id }, process.env.JWT_SECRET, {
+    expiresIn: "1d",
+  });
+
+  return { token, event };
 };

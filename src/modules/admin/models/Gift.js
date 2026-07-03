@@ -1,4 +1,5 @@
 const mongoose = require("mongoose");
+const { giftType } = require("../../../utils/constantEnums");
 
 const giftSchema = new mongoose.Schema({
   eventId: {
@@ -6,7 +7,7 @@ const giftSchema = new mongoose.Schema({
     ref: "Event",
     required: true,
   },
-  type: { type: String, enum: ["wishlist", "cashgift"], required: true },
+  type: { type: String, enum: Object.values(giftType), required: true },
   name: {
     type: String,
     required: [
@@ -25,7 +26,14 @@ const giftSchema = new mongoose.Schema({
       "Price is required for wishlist",
     ],
   },
-  media: [{ name: String, size: Number, type: String }], // optional for wishlist
+  media: [
+    {
+      name: { type: String },
+      size: { type: Number },
+      type: { type: String },
+      link: { type: String },
+    },
+  ],
   description: String, // optional
   amount: {
     type: Number,
@@ -55,6 +63,14 @@ const giftSchema = new mongoose.Schema({
     ],
   },
   reference: String, // optional for cashgift
+  // Wishlist: set when a guest purchases this item
+  purchased: { type: Boolean, default: false },
+  purchasedAt: { type: Date, default: null },
+  purchasedBy: {
+    guestId: { type: mongoose.Schema.Types.ObjectId, ref: "Guest", default: null },
+    guestEmail: { type: String, default: null },
+    guestName: { type: String, default: null },
+  },
 },
 { timestamps: true });
 
