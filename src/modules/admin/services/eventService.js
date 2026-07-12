@@ -27,24 +27,47 @@ exports.createMultipleEvents = async (eventsData) => {
 };
 
 exports.getEventById = async (eventId) => {
-  const event = await Event.findById(eventId);
+  let event = await Event.findById(eventId);
   if (!event) return null;
-  if (!event.qrCode?.qrCodeUrl || isBrokenFrontendUrl(event.qrCode.qrCodeUrl)) {
-    event.qrCode = await qrCodeService.generateEventQRCode(eventId);
+  try {
+    if (!event.eventCode || !event.qrCode?.qrCodeUrl || isBrokenFrontendUrl(event.qrCode.qrCodeUrl)) {
+      await qrCodeService.generateEventQRCode(eventId);
+      event = await Event.findById(eventId);
+    }
+  } catch (err) {
+    console.error(`QR refresh failed for event ${eventId}:`, err.message);
   }
   return event;
 };
 
+/**
+ * List organizer events. Never runs QR/eventCode repair here —
+ * that used to throw "eventCode is required" and break the whole list.
+ * Repair runs on create, get-by-id, and GET /qr-code/generate/event/:id.
+ */
 exports.getAllEvents = async (userId, limit, skip) => {
   const [events, totalCount] = await Promise.all([
-    Event.find({ organizerId: userId }).skip(skip).limit(limit).sort({ createdAt: -1 }),
+    Event.find({ organizerId: userId })
+      .skip(skip)
+      .limit(limit)
+      .sort({ createdAt: -1 })
+      .lean(),
     Event.countDocuments({ organizerId: userId }),
   ]);
 
+  // Best-effort: backfill missing eventCode without failing the list
   await Promise.all(
-    events.map(async (event) => {
-      if (!event.qrCode?.qrCodeUrl || isBrokenFrontendUrl(event.qrCode.qrCodeUrl)) {
-        event.qrCode = await qrCodeService.generateEventQRCode(event._id);
+    events.map(async (event, index) => {
+      if (event.eventCode) return;
+      try {
+        const code = generateEventCode();
+        await Event.updateOne(
+          { _id: event._id, $or: [{ eventCode: null }, { eventCode: { $exists: false } }, { eventCode: "" }] },
+          { $set: { eventCode: code } }
+        );
+        events[index] = { ...event, eventCode: code };
+      } catch (err) {
+        console.error(`eventCode backfill failed for ${event._id}:`, err.message);
       }
     })
   );

@@ -18,8 +18,7 @@ exports.createEvent = async (req, res) => {
     };
 
     const event = await eventService.createEvent(eventData);
-    res.status(201).json(event);
-    res.status(201).json(event);
+    return res.status(201).json(event);
   } catch (error) {
     res.status(400).json({ message: error.message });
   }

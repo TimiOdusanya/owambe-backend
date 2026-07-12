@@ -14,6 +14,7 @@ router.post("/webhook", paymentController.webhook);
 router.get("/purchases/:eventId", paymentController.getPurchases);
 
 router.get("/wallet/summary", authenticate, walletController.getWalletSummary);
+router.get("/wallet/transactions", authenticate, walletController.getAllTransactions);
 router.get("/wallet/:eventId", authenticate, walletController.getWallet);
 router.get("/wallet/:eventId/transactions", authenticate, walletController.getTransactions);
 router.post("/wallet/:eventId/topup", authenticate, walletController.topupWallet);
