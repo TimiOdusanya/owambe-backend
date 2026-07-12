@@ -70,6 +70,25 @@ exports.getWalletSummary = async (req, res) => {
 };
 
 /**
+ * GET /api/v1/payment/wallet/transactions
+ * Transaction history across ALL events for the logged-in organizer.
+ * Query: limit?, skip?, type? (funding|withdraw)
+ */
+exports.getAllTransactions = async (req, res) => {
+  try {
+    const { limit = 20, skip = 0, type } = req.query;
+    const result = await walletService.getOrganizerTransactionHistory(req.user._id, {
+      limit: parseInt(limit, 10) || 20,
+      skip: parseInt(skip, 10) || 0,
+      type: type || undefined,
+    });
+    return res.status(200).json(result);
+  } catch (error) {
+    return res.status(400).json({ message: error.message || "Failed to get transaction history" });
+  }
+};
+
+/**
  * POST /api/v1/payment/wallet/:eventId/topup
  * Creates a Flutterwave Standard payment link for the organizer to top up their event wallet.
  * Body: { amount, redirect_url }

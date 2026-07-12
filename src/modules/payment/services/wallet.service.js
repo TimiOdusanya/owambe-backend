@@ -179,6 +179,79 @@ const getOrganizerWalletSummary = async (organizerId) => {
   };
 };
 
+/**
+ * Transaction history across all events for an organizer.
+ * Maps DB types to UI labels: Funding (payment_in) / Withdraw (transfer_out).
+ * Optional filter: type = funding|withdraw|payment_in|transfer_out
+ */
+const getOrganizerTransactionHistory = async (
+  organizerId,
+  { limit = 20, skip = 0, type } = {}
+) => {
+  const events = await Event.find({ organizerId }).select("_id title").lean();
+  if (!events.length) {
+    return {
+      currency: "NGN",
+      transactions: [],
+      totalCount: 0,
+      currentPage: 1,
+      totalPages: 0,
+    };
+  }
+
+  const eventMap = {};
+  events.forEach((e) => {
+    eventMap[e._id.toString()] = e.title;
+  });
+  const eventIds = events.map((e) => e._id);
+
+  const query = { eventId: { $in: eventIds } };
+  const normalizedType = type ? String(type).toLowerCase().trim() : null;
+  if (normalizedType === "funding" || normalizedType === "payment_in") {
+    query.type = transactionType.PAYMENT_IN;
+  } else if (normalizedType === "withdraw" || normalizedType === "transfer_out") {
+    query.type = transactionType.TRANSFER_OUT;
+  }
+
+  const [rows, totalCount] = await Promise.all([
+    WalletTransaction.find(query)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .lean(),
+    WalletTransaction.countDocuments(query),
+  ]);
+
+  const transactions = rows.map((tx) => {
+    const isWithdraw = tx.type === transactionType.TRANSFER_OUT;
+    const absAmount = Math.abs(Number(tx.amount) || 0);
+    return {
+      _id: tx._id,
+      eventId: tx.eventId,
+      eventTitle: eventMap[tx.eventId.toString()] || null,
+      type: isWithdraw ? "Withdraw" : "Funding",
+      type_raw: tx.type,
+      purpose: tx.purpose || null,
+      amount: isWithdraw ? -absAmount : absAmount,
+      currency: "NGN",
+      reference: tx.reference || tx.transferRef || null,
+      description: tx.description || null,
+      guestName: tx.guestName || null,
+      guestEmail: tx.guestEmail || null,
+      date: tx.createdAt,
+      createdAt: tx.createdAt,
+    };
+  });
+
+  return {
+    currency: "NGN",
+    transactions,
+    totalCount,
+    currentPage: Math.floor(skip / limit) + 1,
+    totalPages: Math.ceil(totalCount / limit) || 0,
+  };
+};
+
 module.exports = {
   getOrCreateWallet,
   creditFromPayment,
@@ -187,4 +260,5 @@ module.exports = {
   getTransactions,
   eventHasBankDetails,
   getOrganizerWalletSummary,
+  getOrganizerTransactionHistory,
 };

@@ -132,17 +132,31 @@ exports.generateEventQRCode = async (eventId) => {
     isBrokenFrontendUrl(event.qrCode?.qrCodeUrl) ||
     event.qrCode.qrCodeUrl !== qrCodeUrl;
 
+  // Backfill missing eventCode so older docs don't fail required validation
+  const updates = {};
+  if (!event.eventCode) {
+    const generateEventCode = require("../../../utils/generateCode");
+    updates.eventCode = generateEventCode();
+  }
+
   if (needsNewOrRefresh) {
     const qrCodeId = event.qrCode?.qrCodeId || uuidv4();
     const qrCodeImage = await QRCode.toDataURL(qrCodeUrl);
-
-    event.qrCode = {
+    updates.qrCode = {
       qrCodeId,
       qrCodeUrl,
       qrCodeImage,
     };
+  }
 
-    await event.save();
+  if (Object.keys(updates).length > 0) {
+    // Update only specific fields — avoids full-document validation on legacy events
+    const updated = await Event.findByIdAndUpdate(
+      eventId,
+      { $set: updates },
+      { new: true, runValidators: false }
+    );
+    return updated.qrCode;
   }
 
   return event.qrCode;
