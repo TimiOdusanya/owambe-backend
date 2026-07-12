@@ -97,7 +97,18 @@ exports.getEventForOneGuest = async (req, res) => {
     if (!event) return res.status(404).json({ message: "Event not found" });
     if (!organizer) return res.status(404).json({ message: "Organizer not found" });
 
-    // 3. Build base event response
+    // 3. Build base event response (includes organizer payout bank when set)
+    const hasBankAccount = !!(event.payoutBankCode && event.payoutAccountNumber);
+    const bankAccount = hasBankAccount
+      ? {
+          bankCode: event.payoutBankCode,
+          bankName: event.payoutBankName || null,
+          accountNumber: event.payoutAccountNumber,
+          accountName: event.payoutAccountName || null,
+          accountType: event.payoutAccountType || null,
+        }
+      : null;
+
     const eventResponse = {
       title: event.title,
       venue: event.venue,
@@ -110,6 +121,14 @@ exports.getEventForOneGuest = async (req, res) => {
       organizerName: `${organizer.firstName} ${organizer.surname}`,
       organizerPhone: organizer.phoneNumber,
       organizerEmail: organizer.email,
+      // Organizer payout account for this event (null if not saved yet)
+      bankAccount,
+      // Flat aliases for frontend convenience
+      payoutBankCode: event.payoutBankCode || null,
+      payoutBankName: event.payoutBankName || null,
+      payoutAccountNumber: event.payoutAccountNumber || null,
+      payoutAccountName: event.payoutAccountName || null,
+      payoutAccountType: event.payoutAccountType || null,
     };
 
     // 4. Handle query-specific logic
