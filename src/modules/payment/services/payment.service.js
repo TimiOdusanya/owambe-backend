@@ -275,8 +275,13 @@ const initiatePayment = async ({
       };
     }
     if (data.status === "successful") {
+      purchase.flwTransactionId = data.id || purchase.flwTransactionId;
       purchase.status = paymentStatus.COMPLETED;
+      purchase.meta = purchase.meta || {};
+      purchase.meta.completed_at = new Date();
       await purchase.save();
+      // Must credit wallet / mark wishlist — same as webhook & verify
+      await completePurchase(purchase);
       return {
         success: true,
         next_action: "completed",
@@ -411,6 +416,7 @@ const validateOtpAndComplete = async (flw_ref, otp) => {
   if (!purchase) throw new Error("Purchase not found");
 
   if (purchase.status === paymentStatus.COMPLETED) {
+    await completePurchase(purchase);
     return { success: true, already_completed: true, purchase };
   }
 
@@ -466,6 +472,12 @@ const verifyAndCompletePurchase = async (transactionIdOrTxRef, { byTxRef = false
     return { success: false, status: data.status, purchase };
   }
 
+  if (purchase.status === paymentStatus.COMPLETED) {
+    // Ensure wallet was credited even if an earlier path skipped completePurchase
+    await completePurchase(purchase);
+    return { success: true, already_completed: true, purchase };
+  }
+
   purchase.flwTransactionId = data.id;
   purchase.status = paymentStatus.COMPLETED;
   purchase.meta = purchase.meta || {};
@@ -499,10 +511,6 @@ const handleWebhook = async (payload) => {
   const purchase = await MediaPurchase.findOne({ txRef });
   if (!purchase) return { handled: true, message: "Purchase not found" };
 
-  if (purchase.status === paymentStatus.COMPLETED) {
-    return { handled: true, message: "Already completed" };
-  }
-
   if (!isSuccess) {
     return { handled: true, message: "Charge not successful" };
   }
@@ -512,11 +520,18 @@ const handleWebhook = async (payload) => {
     return { handled: true, message: "Amount mismatch" };
   }
 
-  purchase.flwTransactionId = transactionId;
-  purchase.status = paymentStatus.COMPLETED;
-  purchase.meta = purchase.meta || {};
-  purchase.meta.webhook_at = new Date();
-  await purchase.save();
+  // Idempotent: even if already COMPLETED, still run completePurchase
+  // (covers cases where status was set without wallet credit)
+  if (purchase.status !== paymentStatus.COMPLETED) {
+    purchase.flwTransactionId = transactionId;
+    purchase.status = paymentStatus.COMPLETED;
+    purchase.meta = purchase.meta || {};
+    purchase.meta.webhook_at = new Date();
+    await purchase.save();
+  } else if (transactionId && !purchase.flwTransactionId) {
+    purchase.flwTransactionId = transactionId;
+    await purchase.save();
+  }
 
   await completePurchase(purchase);
 

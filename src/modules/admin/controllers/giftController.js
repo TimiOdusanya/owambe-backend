@@ -179,23 +179,32 @@ exports.deleteMultipleCashgifts = async (req, res) => {
 /**
  * GET /api/v1/gifts/:eventId/purchased-wishlist
  * Returns all wishlist items that have been purchased by guests.
- * Shows: item name, guest name, purchase date, amount.
+ * Primary: Gift.purchased=true. Fallback: completed MediaPurchase purpose=wishlist
+ * (covers payments that completed before wishlist flag was set).
  */
 exports.getPurchasedWishlist = async (req, res) => {
   try {
     const { eventId } = req.params;
     const { limit = 20, skip = 0 } = req.query;
     const Gift = require("../models/Gift");
-    const [items, totalCount] = await Promise.all([
-      Gift.find({ eventId, type: "wishlist", purchased: true })
-        .sort({ purchasedAt: -1 })
-        .skip(parseInt(skip, 10))
-        .limit(parseInt(limit, 10))
-        .lean(),
-      Gift.countDocuments({ eventId, type: "wishlist", purchased: true }),
+    const mongoose = require("mongoose");
+    const eventObjectId = new mongoose.Types.ObjectId(eventId);
+    const parsedLimit = parseInt(limit, 10) || 20;
+    const parsedSkip = parseInt(skip, 10) || 0;
+
+    const [giftItems, purchaseRows] = await Promise.all([
+      Gift.find({ eventId, type: "wishlist", purchased: true }).lean(),
+      MediaPurchase.find({
+        eventId: eventObjectId,
+        purpose: paymentPurpose.WISHLIST,
+        status: paymentStatus.COMPLETED,
+        wishlistId: { $ne: null },
+      }).lean(),
     ]);
-    res.json({
-      items: items.map((g) => ({
+
+    const byId = new Map();
+    for (const g of giftItems) {
+      byId.set(String(g._id), {
         _id: g._id,
         item: g.name,
         price: g.price,
@@ -205,10 +214,47 @@ exports.getPurchasedWishlist = async (req, res) => {
         guestId: g.purchasedBy?.guestId || null,
         date: g.purchasedAt,
         amount: g.price,
-      })),
+      });
+    }
+
+    // Backfill from payment records if gift flag missing
+    for (const p of purchaseRows) {
+      const key = String(p.wishlistId);
+      if (byId.has(key)) continue;
+      const gift = await Gift.findById(p.wishlistId).lean();
+      if (!gift) continue;
+      byId.set(key, {
+        _id: gift._id,
+        item: gift.name,
+        price: gift.price,
+        description: gift.description,
+        guest: p.guestName || null,
+        guestEmail: p.guestEmail || null,
+        guestId: p.guestId || null,
+        date: p.updatedAt || p.createdAt,
+        amount: p.totalAmount || gift.price,
+      });
+      // Heal gift document so next list is faster
+      await Gift.findByIdAndUpdate(gift._id, {
+        purchased: true,
+        purchasedAt: p.updatedAt || p.createdAt || new Date(),
+        "purchasedBy.guestId": p.guestId,
+        "purchasedBy.guestEmail": p.guestEmail,
+        "purchasedBy.guestName": p.guestName,
+      });
+    }
+
+    const all = Array.from(byId.values()).sort(
+      (a, b) => new Date(b.date || 0) - new Date(a.date || 0)
+    );
+    const totalCount = all.length;
+    const items = all.slice(parsedSkip, parsedSkip + parsedLimit);
+
+    res.json({
+      items,
       totalCount,
-      currentPage: Math.floor(parseInt(skip, 10) / parseInt(limit, 10)) + 1,
-      totalPages: Math.ceil(totalCount / parseInt(limit, 10)),
+      currentPage: Math.floor(parsedSkip / parsedLimit) + 1,
+      totalPages: Math.ceil(totalCount / parsedLimit) || 0,
     });
   } catch (error) {
     res.status(400).json({ message: error.message });
