@@ -2,13 +2,23 @@ const guestMediaService = require("../services/guestMedia.service");
 
 /**
  * GET /api/v1/guest-media/:eventId
- * Query: limit, skip, guestId?, email?
- * List media for event (guest view). Optional guestId/email to show purchased and access.
+ * Query: limit, skip, guestId?, email?, type? (photo|video), purchased? (true|false),
+ *        free? (true), minPrice?, maxPrice?
  */
 exports.listMedia = async (req, res) => {
   try {
     const { eventId } = req.params;
-    const { limit = 10, skip = 0, guestId, email } = req.query;
+    const {
+      limit = 10,
+      skip = 0,
+      guestId,
+      email,
+      type,
+      purchased,
+      free,
+      minPrice,
+      maxPrice,
+    } = req.query;
     const resolvedGuestId = guestId ?? req.headers["x-guest-id"] ?? null;
     const resolvedEmail = email ?? req.headers["x-guest-email"] ?? null;
 
@@ -17,6 +27,11 @@ exports.listMedia = async (req, res) => {
       skip: parseInt(skip, 10) || 0,
       guestId: resolvedGuestId || null,
       email: resolvedEmail || null,
+      type: type || undefined,
+      purchased: purchased !== undefined ? purchased : undefined,
+      free: free || undefined,
+      minPrice: minPrice !== undefined ? minPrice : undefined,
+      maxPrice: maxPrice !== undefined ? maxPrice : undefined,
     });
 
     if (!result) {

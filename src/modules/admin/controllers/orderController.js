@@ -25,22 +25,20 @@ exports.getOrder = async (req, res) => {
 exports.getAllOrders = async (req, res) => {
   try {
     const { eventId } = req.params;
-    const { limit = 10, skip = 0 } = req.query;
+    const { limit = 10, skip = 0, status, date, timeRange } = req.query;
 
-    const parsedLimit = parseInt(limit);
-    const parsedSkip = parseInt(skip);
+    const parsedLimit = parseInt(limit, 10) || 10;
+    const parsedSkip = parseInt(skip, 10) || 0;
 
-
-    const {orders, totalCount } = await orderService.getAllOrders(
-      eventId,
-      parsedLimit, parsedSkip);
-
-    res.json({
-      orders,
-      totalCount,
-      currentPage: Math.floor(parsedSkip / parsedLimit) + 1,
-      totalPages: Math.ceil(totalCount / parsedLimit),
+    const result = await orderService.getAllOrders(eventId, {
+      limit: parsedLimit,
+      skip: parsedSkip,
+      status: status || undefined,
+      date: date || undefined,
+      timeRange: timeRange || undefined,
     });
+
+    res.json(result);
   } catch (error) {
     res.status(400).json({ message: error.message });
   }
@@ -102,42 +100,6 @@ exports.updateOrderStatus = async (req, res) => {
 
 
 exports.filterOrders = async (req, res) => {
-  try {
-    const { eventId } = req.params;
-    const { 
-      status, 
-      date, 
-      timeRange, // '30m', '1h', '2h', '7h'
-      page = 1, 
-      limit = 10 
-    } = req.query;
-
-    
-    const pageNumber = parseInt(page);
-    const limitNumber = parseInt(limit);
-    if (isNaN(pageNumber) || isNaN(limitNumber) || pageNumber < 1 || limitNumber < 1) {
-      return res.status(400).json({ message: "Invalid pagination parameters" });
-    }
-
-    
-    if (timeRange && !['30m', '1h', '2h', '7h'].includes(timeRange)) {
-      return res.status(400).json({ message: "Invalid time range. Use: 30m, 1h, 2h, 7h" });
-    }
-
-    const { orders, total } = await orderService.filterOrders(
-      eventId, 
-      { status, date, timeRange }, 
-      { page: pageNumber, limit: limitNumber }
-    );
-
-    res.json({
-        data: orders,
-        currentPage: pageNumber,
-        totalPages: Math.ceil(total / limitNumber),
-        totalCount: total,
-        itemsPerPage: limitNumber
-    });
-  } catch (error) {
-    res.status(400).json({ message: error.message });
-  }
+  // Alias for getAllOrders — supports status, date, timeRange filters
+  return exports.getAllOrders(req, res);
 };
