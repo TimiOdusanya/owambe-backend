@@ -124,6 +124,28 @@ exports.topupWallet = async (req, res) => {
 };
 
 /**
+ * POST /api/v1/payment/wallet/:eventId/reconcile
+ * Backfill wallet for completed purchases that never created a wallet transaction.
+ * Organizer only. Safe to run multiple times (idempotent).
+ */
+exports.reconcileWallet = async (req, res) => {
+  try {
+    const { eventId } = req.params;
+    await ensureOrganizer(eventId, req.user._id);
+    const result = await paymentService.reconcileEventPayments(eventId);
+    return res.status(200).json({
+      message:
+        result.credited > 0
+          ? `Credited ${result.credited} missed payment(s) to wallet`
+          : "No missed credits found — wallet already up to date",
+      ...result,
+    });
+  } catch (error) {
+    return res.status(400).json({ message: error.message || "Reconcile failed" });
+  }
+};
+
+/**
  * POST /api/v1/payment/wallet/:eventId/withdraw
  * Body: { amount, callback_url?, bankCode?, accountNumber?, accountName? }
  * Withdraw from event wallet. Uses event's saved payout bank account unless bankCode and accountNumber
