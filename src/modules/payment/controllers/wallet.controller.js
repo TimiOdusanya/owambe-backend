@@ -125,7 +125,9 @@ exports.topupWallet = async (req, res) => {
 
 /**
  * POST /api/v1/payment/wallet/:eventId/reconcile
- * Backfill wallet for completed purchases that never created a wallet transaction.
+ * Heals missed wallet credits:
+ * - Verifies PENDING purchases with Flutterwave (stuck after pay if webhook/verify never ran)
+ * - Credits COMPLETED purchases that never got a wallet transaction
  * Organizer only. Safe to run multiple times (idempotent).
  */
 exports.reconcileWallet = async (req, res) => {
@@ -133,10 +135,17 @@ exports.reconcileWallet = async (req, res) => {
     const { eventId } = req.params;
     await ensureOrganizer(eventId, req.user._id);
     const result = await paymentService.reconcileEventPayments(eventId);
+    const parts = [];
+    if (result.verified_from_pending > 0) {
+      parts.push(`verified ${result.verified_from_pending} pending payment(s)`);
+    }
+    if (result.credited > 0) {
+      parts.push(`credited ${result.credited} payment(s) to wallet`);
+    }
     return res.status(200).json({
       message:
-        result.credited > 0
-          ? `Credited ${result.credited} missed payment(s) to wallet`
+        parts.length > 0
+          ? parts.join("; ")
           : "No missed credits found — wallet already up to date",
       ...result,
     });

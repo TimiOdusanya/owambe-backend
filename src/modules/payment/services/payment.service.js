@@ -732,12 +732,44 @@ const createTopupPaymentLink = async ({ eventId, amount, email, fullname, redire
 };
 
 /**
- * Backfill wallet credits for purchases already marked COMPLETED but missing a wallet transaction.
- * Use for old events / missed webhooks. Idempotent.
+ * Backfill wallet credits for an event:
+ * 1) PENDING purchases — verify with Flutterwave; if successful, complete + credit
+ * 2) COMPLETED purchases missing a wallet row — credit (missed webhook/verify)
+ * Idempotent. Safe for organizers to re-run.
  */
 const reconcileEventPayments = async (eventId) => {
   const WalletTransaction = require("../models/WalletTransaction");
   const { transactionType } = require("../../../utils/constantEnums");
+
+  let verifiedFromPending = 0;
+  let pendingStillOpen = 0;
+  const pendingDetails = [];
+
+  const pendingPurchases = await MediaPurchase.find({
+    eventId,
+    status: paymentStatus.PENDING,
+  });
+
+  for (const purchase of pendingPurchases) {
+    try {
+      const result = await verifyAndCompletePurchase(purchase.txRef, { byTxRef: true });
+      if (result.success) {
+        verifiedFromPending += 1;
+        pendingDetails.push({
+          purchase_id: purchase._id,
+          tx_ref: purchase.txRef,
+          amount: purchase.totalAmount,
+          purpose: purchase.purpose,
+          source: "pending_verified",
+        });
+      } else {
+        pendingStillOpen += 1;
+      }
+    } catch (err) {
+      // Not found on Flutterwave / network — leave pending
+      pendingStillOpen += 1;
+    }
+  }
 
   const purchases = await MediaPurchase.find({
     eventId,
@@ -746,7 +778,7 @@ const reconcileEventPayments = async (eventId) => {
 
   let credited = 0;
   let alreadyCredited = 0;
-  const details = [];
+  const details = [...pendingDetails];
 
   for (const purchase of purchases) {
     const existing = await WalletTransaction.findOne({
@@ -765,6 +797,7 @@ const reconcileEventPayments = async (eventId) => {
       tx_ref: purchase.txRef,
       amount: purchase.totalAmount,
       purpose: purchase.purpose,
+      source: "completed_missing_wallet",
     });
   }
 
@@ -772,7 +805,10 @@ const reconcileEventPayments = async (eventId) => {
   return {
     eventId,
     total_completed_purchases: purchases.length,
-    credited,
+    pending_checked: pendingPurchases.length,
+    verified_from_pending: verifiedFromPending,
+    pending_still_open: pendingStillOpen,
+    credited: credited + verifiedFromPending,
     already_credited: alreadyCredited,
     balance: wallet.balance,
     currency: wallet.currency,
