@@ -438,6 +438,7 @@ const validateOtpAndComplete = async (flw_ref, otp) => {
 
 /**
  * Verify transaction by id or tx_ref (from webhook, redirect, or polling) and mark purchase completed.
+ * If purchase is already COMPLETED locally, always attempt wallet credit (heal missed credits).
  */
 const verifyAndCompletePurchase = async (transactionIdOrTxRef, { byTxRef = false } = {}) => {
   let purchase = byTxRef
@@ -450,6 +451,12 @@ const verifyAndCompletePurchase = async (transactionIdOrTxRef, { byTxRef = false
       });
 
   if (!purchase) throw new Error("Purchase not found");
+
+  // Heal path: already marked completed but wallet may never have been credited
+  if (purchase.status === paymentStatus.COMPLETED) {
+    await completePurchase(purchase);
+    return { success: true, already_completed: true, purchase };
+  }
 
   let verifyRes;
   if (purchase.flwTransactionId) {
@@ -470,12 +477,6 @@ const verifyAndCompletePurchase = async (transactionIdOrTxRef, { byTxRef = false
   const data = verifyRes.data || {};
   if (data.status !== "successful") {
     return { success: false, status: data.status, purchase };
-  }
-
-  if (purchase.status === paymentStatus.COMPLETED) {
-    // Ensure wallet was credited even if an earlier path skipped completePurchase
-    await completePurchase(purchase);
-    return { success: true, already_completed: true, purchase };
   }
 
   purchase.flwTransactionId = data.id;
@@ -730,6 +731,55 @@ const createTopupPaymentLink = async ({ eventId, amount, email, fullname, redire
   return { link, tx_ref: txRef, purchase_id: purchase._id, amount: roundedAmount };
 };
 
+/**
+ * Backfill wallet credits for purchases already marked COMPLETED but missing a wallet transaction.
+ * Use for old events / missed webhooks. Idempotent.
+ */
+const reconcileEventPayments = async (eventId) => {
+  const WalletTransaction = require("../models/WalletTransaction");
+  const { transactionType } = require("../../../utils/constantEnums");
+
+  const purchases = await MediaPurchase.find({
+    eventId,
+    status: paymentStatus.COMPLETED,
+  });
+
+  let credited = 0;
+  let alreadyCredited = 0;
+  const details = [];
+
+  for (const purchase of purchases) {
+    const existing = await WalletTransaction.findOne({
+      eventId: purchase.eventId,
+      type: transactionType.PAYMENT_IN,
+      paymentId: purchase._id,
+    });
+    if (existing) {
+      alreadyCredited += 1;
+      continue;
+    }
+    await completePurchase(purchase);
+    credited += 1;
+    details.push({
+      purchase_id: purchase._id,
+      tx_ref: purchase.txRef,
+      amount: purchase.totalAmount,
+      purpose: purchase.purpose,
+    });
+  }
+
+  const wallet = await walletService.getOrCreateWallet(eventId);
+  return {
+    eventId,
+    total_completed_purchases: purchases.length,
+    credited,
+    already_credited: alreadyCredited,
+    balance: wallet.balance,
+    currency: wallet.currency,
+    newly_credited: details,
+  };
+};
+
 module.exports = {
   createTxRef,
   validateAndComputeTotal,
@@ -743,4 +793,5 @@ module.exports = {
   getPurchasedMediaIds,
   createPaymentLink,
   createTopupPaymentLink,
+  reconcileEventPayments,
 };

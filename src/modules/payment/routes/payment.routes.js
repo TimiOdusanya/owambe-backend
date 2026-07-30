@@ -18,6 +18,7 @@ router.get("/wallet/transactions", authenticate, walletController.getAllTransact
 router.get("/wallet/:eventId", authenticate, walletController.getWallet);
 router.get("/wallet/:eventId/transactions", authenticate, walletController.getTransactions);
 router.post("/wallet/:eventId/topup", authenticate, walletController.topupWallet);
+router.post("/wallet/:eventId/reconcile", authenticate, walletController.reconcileWallet);
 router.post("/wallet/:eventId/withdraw", authenticate, walletController.withdraw);
 
 module.exports = router;

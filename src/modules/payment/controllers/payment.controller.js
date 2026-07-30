@@ -249,17 +249,25 @@ exports.webhook = async (req, res) => {
   try {
     const secretHash = process.env.FLW_SECRET_HASH;
     if (secretHash) {
-      const signature = req.headers["flutterwave-signature"];
-      const rawBody = req.rawBody;
-      if (!signature || !rawBody) {
-        return res.status(401).send("Invalid webhook: missing signature or body");
-      }
-      const crypto = require("crypto");
-      const hash = crypto
-        .createHmac("sha256", secretHash)
-        .update(rawBody)
-        .digest("base64");
-      if (hash !== signature) {
+      const signature = req.headers["verif-hash"] || req.headers["flutterwave-signature"];
+      // Flutterwave dashboard secret hash uses verif-hash header (plain string match)
+      if (signature && signature === secretHash) {
+        // ok — classic verif-hash
+      } else if (req.headers["flutterwave-signature"] && req.rawBody) {
+        const crypto = require("crypto");
+        const hash = crypto
+          .createHmac("sha256", secretHash)
+          .update(req.rawBody)
+          .digest("base64");
+        if (hash !== req.headers["flutterwave-signature"]) {
+          console.error("Flutterwave webhook signature mismatch");
+          return res.status(401).send("Invalid webhook signature");
+        }
+      } else if (!signature) {
+        console.error("Flutterwave webhook missing verif-hash / flutterwave-signature");
+        return res.status(401).send("Invalid webhook: missing signature");
+      } else if (signature !== secretHash) {
+        console.error("Flutterwave webhook verif-hash mismatch");
         return res.status(401).send("Invalid webhook signature");
       }
     }
@@ -267,6 +275,7 @@ exports.webhook = async (req, res) => {
     const result = await paymentService.handleWebhook(payload);
     return res.status(200).json(result);
   } catch (error) {
+    console.error("Webhook error:", error.message);
     return res.status(500).json({ message: "Webhook error" });
   }
 };
