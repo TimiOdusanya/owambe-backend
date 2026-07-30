@@ -1,0 +1,33 @@
+<div class="content" style="font-family: Arial, sans-serif; line-height: 1.5;">
+  <h2><%= subject %></h2>
+  <p>Hi <%= guestName || "there" %>,</p>
+  <p><%- body %></p>
+  <% if (mediaItems && mediaItems.length) { %>
+    <ul style="padding-left: 18px;">
+      <% mediaItems.forEach(function (item) { %>
+        <li style="margin-bottom: 12px;">
+          <strong><%= item.title %></strong>
+          <% if (item.links && item.links.length) { %>
+            <ul style="margin-top: 6px;">
+              <% item.links.forEach(function (link) { %>
+                <li>
+                  <a href="<%= link.url %>" style="color: #007bff;">
+                    <%= link.label || "Download / view" %>
+                  </a>
+                </li>
+              <% }) %>
+            </ul>
+          <% } %>
+        </li>
+      <% }) %>
+    </ul>
+  <% } %>
+  <% if (buttonLink) { %>
+    <p style="margin-top: 20px;">
+      <a href="<%= buttonLink %>" style="display: inline-block; background-color: #007bff; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">
+        <%= buttonText || "Open event media" %>
+      </a>
+    </p>
+  <% } %>
+  <p style="margin-top: 20px;">If you have any questions, feel free to contact us.</p>
+</div>

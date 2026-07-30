@@ -44,7 +44,13 @@ const creditFromPayment = async (opts) => {
     type: transactionType.PAYMENT_IN,
     paymentId,
   });
-  if (existing) return { wallet: await getOrCreateWallet(eventId), transaction: existing };
+  if (existing) {
+    return {
+      wallet: await getOrCreateWallet(eventId),
+      transaction: existing,
+      isNew: false,
+    };
+  }
 
   const wallet = await getOrCreateWallet(eventId);
   const previousBalance = wallet.balance;
@@ -68,7 +74,7 @@ const creditFromPayment = async (opts) => {
     meta: { paymentId: paymentId?.toString(), reference },
   });
   await tx.save();
-  return { wallet, transaction: tx };
+  return { wallet, transaction: tx, isNew: true };
 };
 
 /**
