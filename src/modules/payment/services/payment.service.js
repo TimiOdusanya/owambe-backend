@@ -2,10 +2,23 @@ const Event = require("../../admin/models/Event");
 const Media = require("../../admin/models/Media");
 const Guest = require("../../admin/models/Guest");
 const Gift = require("../../admin/models/Gift");
+const User = require("../../user/models/UserProfile.model");
 const MediaPurchase = require("../models/MediaPurchase");
 const { paymentStatus, paymentMethod, paymentPurpose } = require("../../../utils/constantEnums");
 const flutterwaveService = require("./flutterwave.service");
 const walletService = require("./wallet.service");
+const { sendEmail } = require("../../../utils/otpUtils");
+const { getFrontendUrl, getDashboardUrl } = require("../../../utils/urlConfig");
+
+const purposeLabels = {
+  [paymentPurpose.MEDIA]: "Media purchase",
+  [paymentPurpose.WISHLIST]: "Wishlist purchase",
+  [paymentPurpose.GIFT]: "Cash gift",
+  [paymentPurpose.TOPUP]: "Wallet top-up",
+};
+
+const formatNaira = (amount) =>
+  Number(amount || 0).toLocaleString("en-NG", { maximumFractionDigits: 0 });
 
 const createTxRef = () =>
   `owambe_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
@@ -89,10 +102,107 @@ const validateForGift = async (eventId, amount) => {
 };
 
 /**
- * Credit wallet and mark wishlist purchased when applicable.
+ * Email purchased media download links to the guest (once per purchase).
+ */
+const sendMediaPurchaseEmail = async (purchase) => {
+  if (purchase.purpose !== paymentPurpose.MEDIA) return;
+  if (!purchase.guestEmail) return;
+  if (purchase.meta?.media_email_sent) return;
+  if (!purchase.mediaIds?.length) return;
+
+  const mediaDocs = await Media.find({
+    _id: { $in: purchase.mediaIds },
+    eventId: purchase.eventId,
+  }).lean();
+  if (!mediaDocs.length) return;
+
+  const mediaItems = mediaDocs.map((m) => ({
+    title: m.title || "Media",
+    links: (Array.isArray(m.media) ? m.media : [])
+      .filter((f) => f?.link)
+      .map((f, idx) => ({
+        url: f.link,
+        label: f.name || `File ${idx + 1}`,
+      })),
+  }));
+
+  const event = await Event.findById(purchase.eventId).select("title").lean();
+  const eventTitle = event?.title || "your event";
+  const guestSite = getFrontendUrl();
+  const buttonLink = guestSite
+    ? `${guestSite}/${purchase.eventId}?email=${encodeURIComponent(purchase.guestEmail)}`
+    : null;
+
+  await sendEmail(purchase.guestEmail, "mediaPurchase", {
+    subject: `Your media from ${eventTitle}`,
+    guestName: purchase.guestName || "Guest",
+    body: `Thanks for your purchase. Here are your media file(s) from <strong>${eventTitle}</strong>:`,
+    mediaItems,
+    buttonLink,
+    buttonText: "Open event media",
+    text: `Thanks for your purchase. Open your media for ${eventTitle}: ${buttonLink || ""}`,
+  });
+
+  purchase.meta = { ...(purchase.meta || {}), media_email_sent: true, media_email_sent_at: new Date() };
+  await purchase.save();
+};
+
+/**
+ * Email organizer when wallet is newly credited (payment alert).
+ */
+const sendOrganizerPaymentAlert = async (purchase, wallet) => {
+  if (purchase.meta?.organizer_alert_sent) return;
+  if (purchase.purpose === paymentPurpose.TOPUP) return;
+
+  const event = await Event.findById(purchase.eventId)
+    .select("title organizerId")
+    .lean();
+  if (!event?.organizerId) return;
+
+  const organizer = await User.findById(event.organizerId)
+    .select("email firstName surname fullName")
+    .lean();
+  if (!organizer?.email) return;
+
+  const purpose = purchase.purpose || paymentPurpose.MEDIA;
+  const purposeLabel = purposeLabels[purpose] || purpose;
+  const organizerName =
+    organizer.firstName ||
+    organizer.fullName ||
+    `${organizer.firstName || ""} ${organizer.surname || ""}`.trim() ||
+    "Organizer";
+  const dashboard = getDashboardUrl();
+  const buttonLink = dashboard || null;
+  const balance = wallet?.balance ?? 0;
+
+  await sendEmail(organizer.email, "paymentReceived", {
+    subject: `₦${formatNaira(purchase.totalAmount)} received — ${event.title || "your event"}`,
+    organizerName,
+    eventTitle: event.title || "Your event",
+    purposeLabel,
+    amountFormatted: formatNaira(purchase.totalAmount),
+    balanceFormatted: formatNaira(balance),
+    guestName: purchase.guestName || "Guest",
+    guestEmail: purchase.guestEmail || "",
+    body: `You received a <strong>${purposeLabel.toLowerCase()}</strong> payment. It has been added to your event wallet balance and transaction history.`,
+    buttonLink,
+    buttonText: "Open dashboard",
+    text: `You received ₦${formatNaira(purchase.totalAmount)} (${purposeLabel}) for ${event.title}. New wallet balance: ₦${formatNaira(balance)}.`,
+  });
+
+  purchase.meta = {
+    ...(purchase.meta || {}),
+    organizer_alert_sent: true,
+    organizer_alert_sent_at: new Date(),
+  };
+  await purchase.save();
+};
+
+/**
+ * Credit wallet, mark wishlist purchased, email guest media + organizer alert.
  */
 const completePurchase = async (purchase) => {
-  await walletService.creditFromPayment({
+  const creditResult = await walletService.creditFromPayment({
     eventId: purchase.eventId,
     amount: purchase.totalAmount,
     paymentId: purchase._id,
@@ -103,6 +213,7 @@ const completePurchase = async (purchase) => {
     guestName: purchase.guestName,
     guestPhone: purchase.guestPhone,
   });
+
   if (purchase.purpose === paymentPurpose.WISHLIST && purchase.wishlistId) {
     await Gift.findByIdAndUpdate(purchase.wishlistId, {
       purchased: true,
@@ -112,6 +223,22 @@ const completePurchase = async (purchase) => {
       "purchasedBy.guestName": purchase.guestName,
     });
   }
+
+  // Notifications must not fail payment completion.
+  // Also runs on heal/verify so guests/organisers still get emails if webhook was late.
+  try {
+    await sendMediaPurchaseEmail(purchase);
+  } catch (err) {
+    console.error("Media purchase email failed:", err.message);
+  }
+
+  try {
+    await sendOrganizerPaymentAlert(purchase, creditResult?.wallet);
+  } catch (err) {
+    console.error("Organizer payment alert failed:", err.message);
+  }
+
+  return creditResult;
 };
 
 /**
@@ -786,11 +913,13 @@ const reconcileEventPayments = async (eventId) => {
       type: transactionType.PAYMENT_IN,
       paymentId: purchase._id,
     });
+    // Always run completePurchase: wallet credit is idempotent; also sends
+    // missing guest media / organizer alert emails on heal.
+    await completePurchase(purchase);
     if (existing) {
       alreadyCredited += 1;
       continue;
     }
-    await completePurchase(purchase);
     credited += 1;
     details.push({
       purchase_id: purchase._id,

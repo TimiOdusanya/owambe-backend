@@ -1,0 +1,35 @@
+<div class="content" style="font-family: Arial, sans-serif; line-height: 1.5;">
+  <h2><%= subject %></h2>
+  <p>Hi <%= organizerName || "there" %>,</p>
+  <p><%- body %></p>
+  <table style="border-collapse: collapse; width: 100%; max-width: 480px; margin: 16px 0;">
+    <tr>
+      <td style="padding: 8px 0; color: #555;">Event</td>
+      <td style="padding: 8px 0; font-weight: bold;"><%= eventTitle %></td>
+    </tr>
+    <tr>
+      <td style="padding: 8px 0; color: #555;">Type</td>
+      <td style="padding: 8px 0; font-weight: bold;"><%= purposeLabel %></td>
+    </tr>
+    <tr>
+      <td style="padding: 8px 0; color: #555;">Amount</td>
+      <td style="padding: 8px 0; font-weight: bold;">₦<%= amountFormatted %></td>
+    </tr>
+    <tr>
+      <td style="padding: 8px 0; color: #555;">From</td>
+      <td style="padding: 8px 0; font-weight: bold;"><%= guestName || "Guest" %><% if (guestEmail) { %> (<%= guestEmail %>)<% } %></td>
+    </tr>
+    <tr>
+      <td style="padding: 8px 0; color: #555;">New wallet balance</td>
+      <td style="padding: 8px 0; font-weight: bold;">₦<%= balanceFormatted %></td>
+    </tr>
+  </table>
+  <p>This payment was credited to your <strong>event wallet</strong> in Owambe (not your bank account yet). To move money to your bank, withdraw from the dashboard.</p>
+  <% if (buttonLink) { %>
+    <p style="margin-top: 20px;">
+      <a href="<%= buttonLink %>" style="display: inline-block; background-color: #007bff; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">
+        <%= buttonText || "View wallet" %>
+      </a>
+    </p>
+  <% } %>
+</div>
