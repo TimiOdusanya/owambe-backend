@@ -46,7 +46,9 @@ const initiateWithdrawal = async (
     amount: Math.round(amount * 100) / 100,
     narration: `Owambe payout: ${event.title || eventId}`,
     reference,
-    callback_url: callback_url || "",
+    // Do NOT send an empty string: the Flutterwave SDK's Joi schema rejects
+    // callback_url: "" and throws synchronously before the transfer is ever attempted.
+    ...(callback_url ? { callback_url } : {}),
   });
 
   if (response.status === "error" || !response.data) {
