@@ -139,7 +139,10 @@ const initiateTransfer = async (params) => {
     currency: "NGN",
     narration: params.narration || "Owambe payout",
     reference: params.reference,
-    callback_url: params.callback_url || "",
+    // The Flutterwave SDK's Joi schema rejects an empty string for callback_url
+    // ("is not allowed to be empty") and throws synchronously before the API is
+    // ever called. Only include callback_url when a real value is provided.
+    ...(params.callback_url ? { callback_url: params.callback_url } : {}),
   };
   const response = await flw.Transfer.initiate(payload);
   return response;
