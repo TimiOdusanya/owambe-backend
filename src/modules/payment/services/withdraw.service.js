@@ -53,12 +53,16 @@ const initiateWithdrawal = async (
 
   if (response.status === "error" || !response.data) {
     const raw = response.message || "Transfer initiation failed";
-    const isIpWhitelist = /ip\s*whitelisting|whitelist/i.test(raw);
+    // Flutterwave returns this generic message (no mention of "whitelist") when the
+    // calling server's IP isn't in the account's Whitelisted IP Addresses list.
+    const isIpWhitelist =
+      /ip\s*whitelisting|whitelist/i.test(raw) ||
+      /cannot be processed.*contact your account administrator/i.test(raw);
     if (isIpWhitelist) {
       throw new Error(
         "Flutterwave requires IP whitelisting for transfers. " +
-        "To fix: log into your Flutterwave dashboard → Settings → API → disable 'Require IP Whitelisting' " +
-        "or add your server's IP address to the whitelist. For Render.com deployments, this requires a static IP add-on."
+        "To fix: log into your Flutterwave dashboard → Settings → Whitelisted IP addresses, and add your " +
+        "production server's outbound IP address (verify via OTP). Withdrawals will keep failing until this is done."
       );
     }
     throw new Error(raw);
