@@ -4,6 +4,7 @@ const Guest = require("../../admin/models/Guest");
 const Gift = require("../../admin/models/Gift");
 const User = require("../../user/models/UserProfile.model");
 const MediaPurchase = require("../models/MediaPurchase");
+const WalletTransaction = require("../models/WalletTransaction");
 const { paymentStatus, paymentMethod, paymentPurpose } = require("../../../utils/constantEnums");
 const flutterwaveService = require("./flutterwave.service");
 const walletService = require("./wallet.service");
@@ -618,12 +619,89 @@ const verifyAndCompletePurchase = async (transactionIdOrTxRef, { byTxRef = false
 };
 
 /**
- * Handle Flutterwave webhook (charge.completed).
+ * Email organizer when an accepted withdrawal fails at the bank and funds are returned to wallet.
+ */
+const sendWithdrawalFailedAlert = async (eventId, amount, wallet, reason) => {
+  const event = await Event.findById(eventId).select("title organizerId").lean();
+  if (!event?.organizerId) return;
+
+  const organizer = await User.findById(event.organizerId)
+    .select("email firstName surname fullName")
+    .lean();
+  if (!organizer?.email) return;
+
+  const organizerName =
+    organizer.firstName ||
+    organizer.fullName ||
+    `${organizer.firstName || ""} ${organizer.surname || ""}`.trim() ||
+    "Organizer";
+  const dashboard = getDashboardUrl();
+  const balance = wallet?.balance ?? 0;
+
+  await sendEmail(organizer.email, "withdrawalFailed", {
+    subject: `Withdrawal failed — funds returned to your wallet`,
+    organizerName,
+    eventTitle: event.title || "Your event",
+    amountFormatted: formatNaira(amount),
+    balanceFormatted: formatNaira(balance),
+    body: `Your withdrawal could not be completed${reason ? ` (${reason})` : ""}. The amount has been added back to your event wallet.`,
+    buttonLink: dashboard || null,
+    buttonText: "Open dashboard",
+    text: `Your ₦${formatNaira(amount)} withdrawal for ${event.title} failed and has been returned to your wallet. New balance: ₦${formatNaira(balance)}.`,
+  });
+};
+
+/**
+ * Handle Flutterwave transfer.completed webhook (payout status callback).
+ * On FAILED, reverse the wallet debit so the organizer doesn't lose the funds.
+ */
+const handleTransferWebhook = async (data) => {
+  const transferRef = data.reference;
+  const status = String(data.status || "").toUpperCase();
+  if (!transferRef) return { handled: true, message: "No reference on transfer webhook" };
+
+  if (status === "SUCCESSFUL") {
+    await walletService.markTransferConfirmed(transferRef);
+    return { handled: true, status: "successful" };
+  }
+
+  if (status === "FAILED") {
+    const tx = await WalletTransaction.findOne({ transferRef });
+    if (!tx) return { handled: true, message: "Transfer record not found for reference" };
+
+    const amount = Math.abs(tx.amount);
+    const result = await walletService.reverseFailedTransfer(
+      tx.eventId,
+      amount,
+      transferRef,
+      data.complete_message || "Transfer failed at the bank"
+    );
+
+    if (result?.isNew) {
+      try {
+        await sendWithdrawalFailedAlert(tx.eventId, amount, result.wallet, data.complete_message);
+      } catch (err) {
+        console.error("Withdrawal-failed alert email failed:", err.message);
+      }
+    }
+    return { handled: true, status: "failed", reversed: !!result?.isNew };
+  }
+
+  // NEW / PENDING or other in-progress statuses — nothing to do yet.
+  return { handled: true, status: status.toLowerCase() || "unknown" };
+};
+
+/**
+ * Handle Flutterwave webhook (charge.completed for payments, transfer.completed for payouts).
  * Supports both v3 (event, tx_ref, successful) and v4 (type, reference, succeeded) payload shapes.
  */
 const handleWebhook = async (payload) => {
   const eventType = payload.event || payload.type;
   const data = payload.data || {};
+
+  if (eventType === "transfer.completed") {
+    return handleTransferWebhook(data);
+  }
 
   if (eventType !== "charge.completed") {
     return { handled: false };
