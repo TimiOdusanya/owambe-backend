@@ -1,0 +1,27 @@
+<div class="content" style="font-family: Arial, sans-serif; line-height: 1.5;">
+  <h2><%= subject %></h2>
+  <p>Hi <%= organizerName || "there" %>,</p>
+  <p><%- body %></p>
+  <table style="border-collapse: collapse; width: 100%; max-width: 480px; margin: 16px 0;">
+    <tr>
+      <td style="padding: 8px 0; color: #555;">Event</td>
+      <td style="padding: 8px 0; font-weight: bold;"><%= eventTitle %></td>
+    </tr>
+    <tr>
+      <td style="padding: 8px 0; color: #555;">Withdrawal amount</td>
+      <td style="padding: 8px 0; font-weight: bold;">₦<%= amountFormatted %></td>
+    </tr>
+    <tr>
+      <td style="padding: 8px 0; color: #555;">Wallet balance now</td>
+      <td style="padding: 8px 0; font-weight: bold;">₦<%= balanceFormatted %></td>
+    </tr>
+  </table>
+  <p>Your withdrawal could not be completed by our payment provider, so the funds have been <strong>returned to your event wallet</strong> — no money was lost. Please check your bank details are correct and try withdrawing again.</p>
+  <% if (buttonLink) { %>
+    <p style="margin-top: 20px;">
+      <a href="<%= buttonLink %>" style="display: inline-block; background-color: #007bff; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">
+        <%= buttonText || "Open dashboard" %>
+      </a>
+    </p>
+  <% } %>
+</div>

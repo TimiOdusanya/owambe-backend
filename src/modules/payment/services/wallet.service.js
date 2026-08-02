@@ -106,6 +106,57 @@ const debitForTransfer = async (eventId, amount, transferRef, description = "Wit
 };
 
 /**
+ * Mark a transfer_out transaction as confirmed successful by Flutterwave (transfer.completed webhook).
+ * Idempotent: safe to call multiple times.
+ */
+const markTransferConfirmed = async (transferRef) => {
+  const tx = await WalletTransaction.findOne({ transferRef, type: transactionType.TRANSFER_OUT });
+  if (!tx) return null;
+  tx.meta = { ...(tx.meta || {}), transfer_status: "successful", confirmed_at: new Date() };
+  await tx.save();
+  return tx;
+};
+
+/**
+ * A withdrawal was accepted by Flutterwave but later failed at the bank (transfer.completed
+ * webhook with status FAILED). Reverse the debit so the organizer doesn't lose the funds.
+ * Idempotent: only reverses once per transferRef, even if the webhook fires more than once.
+ */
+const reverseFailedTransfer = async (eventId, amount, transferRef, reason = "Withdrawal failed — funds returned to wallet") => {
+  if (!eventId || amount <= 0 || !transferRef) return null;
+
+  const originalTx = await WalletTransaction.findOne({ transferRef, type: transactionType.TRANSFER_OUT });
+  if (originalTx) {
+    originalTx.meta = { ...(originalTx.meta || {}), transfer_status: "failed", failed_at: new Date() };
+    await originalTx.save();
+  }
+
+  const reversalRef = `${transferRef}_reversal`;
+  const existing = await WalletTransaction.findOne({ reference: reversalRef, type: transactionType.ADJUSTMENT });
+  if (existing) {
+    return { wallet: await getOrCreateWallet(eventId), transaction: existing, isNew: false };
+  }
+
+  const wallet = await getOrCreateWallet(eventId);
+  const newBalance = wallet.balance + amount;
+  wallet.balance = newBalance;
+  await wallet.save();
+
+  const tx = new WalletTransaction({
+    eventId,
+    type: transactionType.ADJUSTMENT,
+    amount,
+    balanceAfter: newBalance,
+    reference: reversalRef,
+    transferRef,
+    description: reason,
+    meta: { reversalOf: transferRef },
+  });
+  await tx.save();
+  return { wallet, transaction: tx, isNew: true };
+};
+
+/**
  * Get current balance for an event.
  */
 const getBalance = async (eventId) => {
@@ -262,6 +313,8 @@ module.exports = {
   getOrCreateWallet,
   creditFromPayment,
   debitForTransfer,
+  markTransferConfirmed,
+  reverseFailedTransfer,
   getBalance,
   getTransactions,
   eventHasBankDetails,
