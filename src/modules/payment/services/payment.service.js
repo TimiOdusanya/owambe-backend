@@ -25,6 +25,27 @@ const createTxRef = () =>
   `owambe_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
 
 /**
+ * Atomically set specific keys under MediaPurchase.meta (a Mixed field) without
+ * touching the rest of it, and without needing an in-memory copy to be up to date.
+ *
+ * Several independent flows can race to update the same purchase's meta (webhook,
+ * manual verify, reconcile, the payout retry sweep). A full-document `purchase.save()`
+ * would silently clobber whatever another flow wrote in between fetch and save — this
+ * uses MongoDB's dot-notation update instead, so each caller only ever touches its own
+ * keys. Safe even when meta is currently null (the schema default).
+ */
+const patchPurchaseMeta = async (purchaseId, patch) => {
+  const keys = Object.keys(patch || {});
+  if (!keys.length) return;
+  await MediaPurchase.updateOne({ _id: purchaseId, meta: null }, { $set: { meta: {} } });
+  const setOps = {};
+  keys.forEach((key) => {
+    setOps[`meta.${key}`] = patch[key];
+  });
+  await MediaPurchase.updateOne({ _id: purchaseId }, { $set: setOps });
+};
+
+/**
  * Ensure the payer is a guest for this event and has accepted (claimed) the invite.
  * Call before allowing payment. Throws if guest not found or invite not claimed.
  * @param {string} eventId
@@ -144,14 +165,13 @@ const sendMediaPurchaseEmail = async (purchase) => {
     text: `Thanks for your purchase. Open your media for ${eventTitle}: ${buttonLink || ""}`,
   });
 
-  purchase.meta = { ...(purchase.meta || {}), media_email_sent: true, media_email_sent_at: new Date() };
-  await purchase.save();
+  await patchPurchaseMeta(purchase._id, { media_email_sent: true, media_email_sent_at: new Date() });
 };
 
 /**
  * Email organizer when wallet is newly credited (payment alert).
  */
-const sendOrganizerPaymentAlert = async (purchase, wallet) => {
+const sendOrganizerPaymentAlert = async (purchase, wallet, note) => {
   if (purchase.meta?.organizer_alert_sent) return;
   if (purchase.purpose === paymentPurpose.TOPUP) return;
 
@@ -185,22 +205,22 @@ const sendOrganizerPaymentAlert = async (purchase, wallet) => {
     balanceFormatted: formatNaira(balance),
     guestName: purchase.guestName || "Guest",
     guestEmail: purchase.guestEmail || "",
-    body: `You received a <strong>${purposeLabel.toLowerCase()}</strong> payment. It has been added to your event wallet balance and transaction history.`,
+    body:
+      note ||
+      `You received a <strong>${purposeLabel.toLowerCase()}</strong> payment. It has been added to your event wallet balance and transaction history.`,
     buttonLink,
     buttonText: "Open dashboard",
     text: `You received ₦${formatNaira(purchase.totalAmount)} (${purposeLabel}) for ${event.title}. New wallet balance: ₦${formatNaira(balance)}.`,
   });
 
-  purchase.meta = {
-    ...(purchase.meta || {}),
-    organizer_alert_sent: true,
-    organizer_alert_sent_at: new Date(),
-  };
-  await purchase.save();
+  await patchPurchaseMeta(purchase._id, { organizer_alert_sent: true, organizer_alert_sent_at: new Date() });
 };
 
 /**
  * Credit wallet, mark wishlist purchased, email guest media + organizer alert.
+ * Guest payments (media/wishlist/gift) and organizer top-ups both land in the event's
+ * Owambe wallet the same way — it's the organizer's own decision when (and how much)
+ * to withdraw from there to their bank account via the manual withdraw endpoint.
  */
 const completePurchase = async (purchase) => {
   const creditResult = await walletService.creditFromPayment({
