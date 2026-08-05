@@ -8,6 +8,25 @@ const purposeDescription = {
   [paymentPurpose.WISHLIST]: "Wishlist purchase",
   [paymentPurpose.GIFT]: "Gift",
   [paymentPurpose.TOPUP]: "Wallet top-up",
+  [paymentPurpose.WITHDRAWAL]: "Withdrawal",
+};
+
+/** Guest earnings only — excludes topups and withdrawals. */
+const REVENUE_PURPOSES = [
+  paymentPurpose.MEDIA,
+  paymentPurpose.WISHLIST,
+  paymentPurpose.GIFT,
+];
+
+/**
+ * Short purpose label for API responses.
+ * transfer_out always maps to "withdrawal" (including older rows that defaulted to "media").
+ */
+const resolveTransactionPurpose = (tx) => {
+  if (!tx) return null;
+  if (tx.type === transactionType.TRANSFER_OUT) return paymentPurpose.WITHDRAWAL;
+  if (tx.type === transactionType.ADJUSTMENT) return "refund";
+  return tx.purpose || null;
 };
 
 /**
@@ -98,6 +117,7 @@ const debitForTransfer = async (eventId, amount, transferRef, description = "Wit
     balanceAfter: newBalance,
     reference: transferRef,
     transferRef,
+    purpose: paymentPurpose.WITHDRAWAL,
     description,
     meta: { transferRef },
   });
@@ -166,16 +186,21 @@ const getBalance = async (eventId) => {
 
 /**
  * List transactions for an event (for admin dashboard).
- * Optional filter: purpose = "media" | "wishlist" | "gift" | "topup" (omit for all).
+ * Optional filter: purpose = "media" | "wishlist" | "gift" | "topup" | "withdrawal" (omit for all).
  */
 const getTransactions = async (eventId, { limit = 20, skip = 0, purpose } = {}) => {
   const query = { eventId };
   const validPurposes = Object.values(paymentPurpose);
   if (purpose && validPurposes.includes(purpose)) {
-    query.purpose = purpose;
+    if (purpose === paymentPurpose.WITHDRAWAL) {
+      query.type = transactionType.TRANSFER_OUT;
+    } else {
+      query.purpose = purpose;
+      query.type = transactionType.PAYMENT_IN;
+    }
   }
 
-  const [transactions, totalCount] = await Promise.all([
+  const [rows, totalCount] = await Promise.all([
     WalletTransaction.find(query)
       .sort({ createdAt: -1 })
       .skip(skip)
@@ -184,6 +209,10 @@ const getTransactions = async (eventId, { limit = 20, skip = 0, purpose } = {}) 
     WalletTransaction.countDocuments(query),
   ]);
   const wallet = await getOrCreateWallet(eventId);
+  const transactions = rows.map((tx) => ({
+    ...tx,
+    purpose: resolveTransactionPurpose(tx),
+  }));
   return {
     balance: wallet.balance,
     currency: wallet.currency,
@@ -288,7 +317,7 @@ const getOrganizerTransactionHistory = async (
       eventTitle: eventMap[tx.eventId.toString()] || null,
       type: isWithdraw ? "Withdraw" : "Funding",
       type_raw: tx.type,
-      purpose: tx.purpose || null,
+      purpose: resolveTransactionPurpose(tx),
       amount: isWithdraw ? -absAmount : absAmount,
       currency: "NGN",
       reference: tx.reference || tx.transferRef || null,
@@ -309,6 +338,77 @@ const getOrganizerTransactionHistory = async (
   };
 };
 
+/**
+ * Sum guest payment_in amounts (media + wishlist + gift). Excludes topups & withdrawals.
+ */
+const sumRevenueForEventIds = async (eventIds) => {
+  if (!eventIds.length) {
+    return { total_revenue: 0, breakdown: { media: 0, wishlist: 0, gift: 0 } };
+  }
+
+  const rows = await WalletTransaction.aggregate([
+    {
+      $match: {
+        eventId: { $in: eventIds },
+        type: transactionType.PAYMENT_IN,
+        purpose: { $in: REVENUE_PURPOSES },
+      },
+    },
+    {
+      $group: {
+        _id: "$purpose",
+        total: { $sum: "$amount" },
+      },
+    },
+  ]);
+
+  const breakdown = { media: 0, wishlist: 0, gift: 0 };
+  let total_revenue = 0;
+  rows.forEach((row) => {
+    const key = row._id;
+    const amount = Number(row.total) || 0;
+    if (breakdown[key] !== undefined) breakdown[key] = amount;
+    total_revenue += amount;
+  });
+
+  return { total_revenue, breakdown };
+};
+
+/**
+ * Revenue for one event + total revenue across all events owned by that organizer.
+ */
+const getEventAndOrganizerRevenue = async (eventId, organizerId) => {
+  const event = await Event.findById(eventId).select("_id title organizerId").lean();
+  if (!event) throw new Error("Event not found");
+  if (event.organizerId.toString() !== organizerId.toString()) {
+    throw new Error("Only the event organizer can view this revenue");
+  }
+
+  const organizerEvents = await Event.find({ organizerId }).select("_id").lean();
+  const organizerEventIds = organizerEvents.map((e) => e._id);
+
+  const [eventRevenue, organizerRevenue] = await Promise.all([
+    sumRevenueForEventIds([event._id]),
+    sumRevenueForEventIds(organizerEventIds),
+  ]);
+
+  return {
+    currency: "NGN",
+    event: {
+      eventId: event._id,
+      title: event.title,
+      total_revenue: eventRevenue.total_revenue,
+      breakdown: eventRevenue.breakdown,
+    },
+    organizer: {
+      organizerId,
+      total_events: organizerEventIds.length,
+      total_revenue: organizerRevenue.total_revenue,
+      breakdown: organizerRevenue.breakdown,
+    },
+  };
+};
+
 module.exports = {
   getOrCreateWallet,
   creditFromPayment,
@@ -320,4 +420,5 @@ module.exports = {
   eventHasBankDetails,
   getOrganizerWalletSummary,
   getOrganizerTransactionHistory,
+  getEventAndOrganizerRevenue,
 };
