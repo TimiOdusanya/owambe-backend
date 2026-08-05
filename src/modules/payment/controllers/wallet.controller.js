@@ -36,7 +36,7 @@ exports.getWallet = async (req, res) => {
 /**
  * GET /api/v1/payment/wallet/:eventId/transactions
  * List wallet transactions for an event (organizer only).
- * Query: limit?, skip?, purpose? (media|wishlist|gift|topup – omit for all).
+ * Query: limit?, skip?, purpose? (media|wishlist|gift|topup|withdrawal – omit for all).
  */
 exports.getTransactions = async (req, res) => {
   try {
@@ -53,6 +53,22 @@ exports.getTransactions = async (req, res) => {
     return res
       .status(400)
       .json({ message: error.message || "Failed to get transactions" });
+  }
+};
+
+/**
+ * GET /api/v1/payment/wallet/:eventId/revenue
+ * Returns guest revenue for this event AND total guest revenue across all of
+ * the organizer's events (media + wishlist + gift; excludes topups/withdrawals).
+ */
+exports.getRevenue = async (req, res) => {
+  try {
+    const { eventId } = req.params;
+    const result = await walletService.getEventAndOrganizerRevenue(eventId, req.user._id);
+    return res.status(200).json(result);
+  } catch (error) {
+    const status = error.message === "Event not found" ? 404 : 400;
+    return res.status(status).json({ message: error.message || "Failed to get revenue" });
   }
 };
 
