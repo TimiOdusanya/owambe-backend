@@ -10,6 +10,7 @@ const flutterwaveService = require("./flutterwave.service");
 const walletService = require("./wallet.service");
 const { sendEmail } = require("../../../utils/otpUtils");
 const { getFrontendUrl, getDashboardUrl } = require("../../../utils/urlConfig");
+const { toForcedDownloadUrl } = require("../../../utils/mediaDownloadUrl");
 
 const purposeLabels = {
   [paymentPurpose.MEDIA]: "Media purchase",
@@ -142,10 +143,18 @@ const sendMediaPurchaseEmail = async (purchase) => {
     title: m.title || "Media",
     links: (Array.isArray(m.media) ? m.media : [])
       .filter((f) => f?.link)
-      .map((f, idx) => ({
-        url: f.link,
-        label: f.name || `File ${idx + 1}`,
-      })),
+      .map((f, idx) => {
+        const mime = String(f.type || "").toLowerCase();
+        const isVideo = m.type === "video" || mime.startsWith("video/");
+        const isPhoto = m.type === "photo" || mime.startsWith("image/");
+        const fallbackName = isVideo ? `video-${idx + 1}.mp4` : `photo-${idx + 1}.jpg`;
+        const filename = f.name || fallbackName;
+        return {
+          url: toForcedDownloadUrl(f.link, filename),
+          filename,
+          label: isVideo ? "Download video" : isPhoto ? "Download photo" : "Download",
+        };
+      }),
   }));
 
   const event = await Event.findById(purchase.eventId).select("title").lean();
